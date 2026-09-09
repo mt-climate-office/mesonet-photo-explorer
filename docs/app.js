@@ -14,7 +14,7 @@
 'use strict';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const CLOUDFRONT_BASE = "https://data2.climate.umt.edu/mesonet";       // processed WebP + raw JPG photos
+const CLOUDFRONT_BASE = "https://data2.climate.umt.edu/mesonet";       // WebP photos, thumb + large
 const PHOTOS_META     = "https://mesonet.climate.umt.edu/api/v2/photos?type=json";
 const STATIONS_META   = "https://mesonet.climate.umt.edu/api/stations?type=json";
 const STATUS_META     = "https://mesonet.climate.umt.edu/api/stations/status?type=json";
@@ -104,7 +104,7 @@ let _refreshToken = 0;                // guards against stale async photo loads 
 let _hoveredId = null;
 let _photoState = new Map();          // station → true|false (has a photo for the current selection)
 let _lastAnnounced = '';
-const _cropCache = new Map();         // photoUrl → cover-cropped data URL
+const _cropCache = new Map();         // thumb URL → cover-cropped data URL
 
 // ── URL state ─────────────────────────────────────────────────────────────────
 const urlParams = MCO.urlParams();
@@ -162,12 +162,46 @@ function pickSpread(arr, n) {
 }
 
 function getSelectedDateTime() { return `${dateInput.value}T${timeInput.value}`; }
-// Photo filenames zero out minutes+seconds: "2026-03-21T09:00:00" → "2026-03-21T090000".
-function photoUrl(station, dtStr, direction) {
-  return `${CLOUDFRONT_BASE}/photos/web/${station}/${dtStr.slice(0, 13)}0000_${direction}.webp`;
+
+// Photo filenames stamp the capture instant in UTC, but the capture schedule —
+// and every control in this app — is a Montana wall clock, so the stamp runs
+// −6h in MDT and −7h in MST and the conversion has to be DST-aware. Verified
+// against the store in both seasons: 09:00 MT is …15:00:00Z after the March
+// change and …16:00:00Z before it.
+const _mtParts = new Intl.DateTimeFormat('en-US', {
+  timeZone: MCO.TZ, hourCycle: 'h23',
+  year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', second: '2-digit',
+});
+// How far MT sits from UTC at the instant `t`, in ms.
+function mtOffsetMs(t) {
+  const p = {};
+  for (const { type, value } of _mtParts.formatToParts(new Date(t))) p[type] = value;
+  return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second) - t;
 }
-function rawPhotoUrl(station, dtStr, direction) {
-  return `${CLOUDFRONT_BASE}/photos/raw/${station}/${dtStr.slice(0, 13)}0000_${direction}.jpg`;
+// MT wall clock → the UTC instant it names, as a basic-format ISO 8601 stamp:
+// "2026-09-08T09:00:00" → "20260908T150000Z". Two passes, because the first
+// offset is read at the wrong instant whenever the naive guess straddles a DST
+// transition; re-reading at the corrected instant settles it. Both slots sit
+// hours clear of the 02:00 MT change, so no ambiguous-hour handling is needed.
+function utcStamp(dtStr) {
+  const [date, time] = dtStr.split('T');
+  const [Y, M, D]    = date.split('-').map(Number);
+  const [h, m, s]    = time.split(':').map(Number);
+  const wall = Date.UTC(Y, M - 1, D, h, m, s || 0);
+  const o1   = mtOffsetMs(wall);
+  const t1   = wall - o1;
+  const t    = mtOffsetMs(t1) === o1 ? t1 : wall - mtOffsetMs(t1);
+  return new Date(t).toISOString().replace(/[-:]/g, '').replace('.000', '');
+}
+
+// 320×180 — the mosaic crop source and the gallery grid.
+function thumbPhotoUrl(station, dtStr, direction) {
+  return `${CLOUDFRONT_BASE}/photos/webp/thumb/${station}/${station}_${direction}_${utcStamp(dtStr)}.webp`;
+}
+// 1920×1080 — the lightbox only. Replaces the raw JPG the old layout served here.
+function largePhotoUrl(station, dtStr, direction) {
+  return `${CLOUDFRONT_BASE}/photos/webp/large/${station}/${station}_${direction}_${utcStamp(dtStr)}.webp`;
 }
 // The selected slot is a Mountain-Time wall clock, so it's formatted from its
 // parts rather than parsed as an instant — but it still carries the MT label.
@@ -272,7 +306,7 @@ async function resolveInitialTimestep() {
     if (valid.length) {
       const sample = pickSpread(valid, SLOT_PROBE_SAMPLE);
       const crops = await Promise.all(
-        sample.map(f => loadCrop(photoUrl(f.station, `${date}T${time}`, currentDir))));
+        sample.map(f => loadCrop(thumbPhotoUrl(f.station, `${date}T${time}`, currentDir))));
       const hits = crops.filter(Boolean).length;
       // Good enough to show as-is — stop probing.
       if (hits >= Math.ceil(sample.length * SLOT_ACCEPT_RATIO)) {
@@ -579,7 +613,7 @@ function refreshMapImages() {
     if (!map.getLayer(lid)) continue;
     if (!validSet.has(f.station)) { map.setLayoutProperty(lid, 'visibility', 'none'); continue; }
     pending++;
-    const url = photoUrl(f.station, dt, currentDir);
+    const url = thumbPhotoUrl(f.station, dt, currentDir);
     loadCrop(url).then((dataUrl) => {
       if (token !== _refreshToken) return;   // superseded by a newer refresh
       state.set(f.station, !!dataUrl);
@@ -880,7 +914,7 @@ function renderGallery(stationId) {
     btn.setAttribute("aria-label", `${dirLabel} view of ${f.name} — enlarge`);
     const img = document.createElement("img");
     img.alt = "";
-    img.src = photoUrl(stationId, dtStr, dir);
+    img.src = thumbPhotoUrl(stationId, dtStr, dir);
     img.loading = "lazy";
     // A camera that was offline at this slot 404s: drop its card, and once the
     // last one is gone say so rather than leaving a silent empty grid — stepping
@@ -943,7 +977,7 @@ let _galleryStale    = false;   // the lightbox stepped away from the station th
 function showLightboxPhoto(stationId, dir) {
   const f = _featureByStation.get(stationId);
   const caption = `${f.name} · ${formatDisplayTimestamp(getSelectedDateTime())} · ${DIR_LABELS[dir] || dir}`;
-  lightboxImg.src = rawPhotoUrl(stationId, getSelectedDateTime(), dir);
+  lightboxImg.src = largePhotoUrl(stationId, getSelectedDateTime(), dir);
   lightboxImg.alt = caption;
   lightboxCaption.textContent = caption;
   _lightboxStation = stationId;
@@ -1229,7 +1263,7 @@ async function exportPNG() {
                   layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: paints.stateLine });
 
     // Photos (awaited so the map is complete before capture)
-    const crops = await Promise.all(valid.map(f => loadCrop(photoUrl(f.station, dt, currentDir))));
+    const crops = await Promise.all(valid.map(f => loadCrop(thumbPhotoUrl(f.station, dt, currentDir))));
     valid.forEach((f, i) => {
       if (!crops[i]) return;
       const sid = 'photo-' + f.station;
