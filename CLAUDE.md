@@ -26,6 +26,36 @@ Marked kit-overrides in this app:
   + overlay at ≤640px is the kit's `.mco-search-collapse` component (this app
   prototyped it; mesonet-status adopting it is what moved it into the kit).
 
+## Camera schedule source
+
+Photo expectations come from the published camera schedule, not the Mesonet API:
+`https://data2.climate.umt.edu/mesonet/photos/schedule/schedule.json` (`schema: 1`,
+`max-age=60`, CORS `*`), written by `mesocam rollout publish` in the mesonet-cameras
+repo. `/api/v2/photos` (Airtable-fed) had drifted from what the cameras shoot and is
+gone from this app. Stations, coordinates, status and `ace_grid` still come from the
+API, now at `mesonet2.climate.umt.edu/api/...` (same paths and schema).
+
+`isValidForSlot(station, dir, dtStr)` is **period-aware**: the slot's UTC instant picks
+the schedule period (`from <= t < until`), the token must be in that period's views,
+the slot's local `HH:MM` must be in its `slots_local`, and the date must be on or after
+`first_month + "-01"`. So a camera moved at 13:21 MT shows its old views at 09:00 and
+its new ones at 15:00 that day, and history renders what was actually shot.
+
+**Only 09:00 and 15:00 are shown for now**, although many cameras are hourly. The
+`#time-input` options are the single source of truth: they feed `SHOWN_SLOTS` (which
+filters each view's `slots_local` at parse), `computeMaxTimestep`, `previousSlot` and the
+harness. Going hourly is an `index.html` edit plus a rethink of `SLOT_FALLBACK_MAX`
+(4 slots ≈ 2 days now, ≈ 4 hours hourly). The date picker floor is the constant
+`PHOTOS_MIN_DATE` (2022-09-22, the old API's network-wide start); the schedule's
+`first_month` reaches back to 2016-12 for a few stations but coverage there is sparse.
+`thumbPhotoUrl`/`largePhotoUrl` are hardcoded and must agree with the file's `patterns`.
+
+Known upstream data oddity (fix in mesonet-cameras `data/rollout.json`, not here): the
+legacy period for `acebozem`, `acetosto`, `acemidwa` lists E/N/S/SNOW/W, but the store
+(and the old API) has N/NS/S/SS for them, so their sky views are hidden and their E/W/SNOW
+cells render empty. Two schedule stations (`acehammo`, `acerattl`) are not HydroMet/active
+in the API and so are never placed.
+
 ## Landing-slot fallback
 
 `computeMaxTimestep` assumes a flat 30-minute processing lag, but the mirror job

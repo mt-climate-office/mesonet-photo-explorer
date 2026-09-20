@@ -13,20 +13,25 @@ A service of the [Montana Climate Office](https://climate.umt.edu).
 
 The project has two independent halves.
 
-**Photos → S3.** Cameras at each station post photos to the Mesonet source server.
-`scripts/mirror_photos.py` (run on a schedule by GitHub Actions) mirrors new photos to a
-private S3 bucket, converts them to small WebP thumbnails, and records what it has processed
-in a manifest so it only ever fetches new files. Photos are served through CloudFront.
+**Photos → S3.** Cameras at each station post photos to the Mesonet source server. The
+WebP store the explorer reads (`photos/webp/{thumb,large}/…`) and the published camera
+schedule (`photos/schedule/schedule.json`) are now produced by the
+[mesonet-cameras](https://github.com/mt-climate-office/mesonet-cameras) repo and served
+through CloudFront. `scripts/mirror_photos.py` (run on a schedule by GitHub Actions) is the
+legacy mirror: it still writes the retired `photos/{raw,web}` tree; its workflow's remaining
+useful job is regenerating `docs/preview.png`.
 
 **Explorer ← live API.** `docs/index.html` is a static single-page app (MapLibre GL JS,
 styled with [mco-web-style](https://github.com/mt-climate-office/mco-web-style)) hosted on GitHub
 Pages. It draws Montana as a grid of cells and fills each one with a station's latest photo.
-The map *geometry* is the only static piece — everything else is read live from the Mesonet
-API on each page load:
+The map *geometry* is the only static piece — everything else is read live on each page
+load, from the Mesonet API (`mesonet2.climate.umt.edu`) and the published camera schedule:
 
 - which stations exist and are active,
 - which grid cell each station belongs to, and
-- which photos are available.
+- which views each station photographs, at which times, and since when (the schedule's
+  dated periods — a moved camera shows its old views before the move and its new ones
+  after).
 
 A station's cell appears once it is an active HydroMet station with photos online. **Because no
 station data is baked into the map, new stations show up automatically — nothing in this repo
@@ -115,10 +120,13 @@ Terraform).
 ## Data source
 
 Photos are captured by cameras at Montana Mesonet sites and served by the Montana Climate
-Office. The explorer reads all station and photo metadata live from the Mesonet API:
+Office. The explorer reads all station and photo metadata live:
 
-| Endpoint | Provides |
-|----------|----------|
-| `…/api/stations` | Station list, network membership, names, coordinates |
-| `…/api/stations/status` | Per-station status and grid-cell (`ace_grid`) assignment |
-| `…/api/v2/photos` | Photo direction availability and start dates |
+| Source | Provides |
+|--------|----------|
+| `https://mesonet2.climate.umt.edu/api/stations` | Station list, network membership, names, coordinates |
+| `https://mesonet2.climate.umt.edu/api/stations/status` | Per-station status and grid-cell (`ace_grid`) assignment |
+| `https://data2.climate.umt.edu/mesonet/photos/schedule/schedule.json` | Per-station camera views, slot times, dated schedule periods and first month with photos (published by mesonet-cameras) |
+
+The UI exposes only the 09:00 and 15:00 Mountain Time slots for now, although the schedule
+records hourly capture for a growing share of cameras.
