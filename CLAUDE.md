@@ -1,7 +1,7 @@
-# mesonet-photos
+# mesonet-photo-explorer
 
 The Montana Mesonet Photo Explorer: a static MapLibre single-page app in `docs/`
-(GitHub Pages root), plus the Python photo-mirroring pipeline in `scripts/`.
+(GitHub Pages root), plus `scripts/generate_preview.py`.
 
 ## House style
 
@@ -58,10 +58,11 @@ in the API and so are never placed.
 
 ## Landing-slot fallback
 
-`computeMaxTimestep` assumes a flat 30-minute processing lag, but the mirror job
-publishes ~12×/day — so the newest expected slot is empty right after it turns
-over and then fills in gradually (observed climbing 0% → 50% → 75% over minutes;
-a settled slot measures ~83%, the rest being cameras that are simply offline).
+`computeMaxTimestep` assumes a flat 30-minute processing lag, but the upstream
+mesonet-cameras job publishes several times a day — so the newest expected slot
+is empty right after it turns over and then fills in gradually (observed climbing
+0% → 50% → 75% over minutes; a settled slot measures ~83%, the rest being cameras
+that are simply offline).
 
 `resolveInitialTimestep()` therefore probes a spread sample of stations before
 the layers are added and picks the newest slot worth showing: it accepts a slot
@@ -80,9 +81,12 @@ Pushing `main` **is a production deploy, on two URLs**: GitHub Pages publishes
 `/docs` from `main`, and the same page is reverse-proxied at
 `mesonet.climate.umt.edu/photos/` (mesonet_app Caddyfile).
 
-`.github/workflows/mirror_photos.yml` runs ~12×/day and **commits
-`docs/preview.png` back to `main`** — always pull/rebase before pushing, or you
-race it. `adjust_dst.yml` rewrites the crons on DST Sundays.
+`.github/workflows/preview.yml` runs once daily and **commits `docs/preview.png`
+back to `main`** — always pull/rebase before pushing, or you race it.
+
+This repo owns no AWS resources and no photo processing: the pipeline lives in
+mesonet-cameras, the bucket in mco-aws (`stacks/mco-mesonet-bucket`), the CDN in
+mco-data-cdn.
 
 `scripts/generate_preview.py` drives the live page headlessly via `?export=dark`
 plus a 4-second delay before clicking `#btn-export`. That timing, the param, and

@@ -6,9 +6,6 @@
 .DS_Store
 .quarto
 
-# Local photo mirror cache (can be large — do not commit)
-cache/
-
 # Python bytecode
 __pycache__/
 

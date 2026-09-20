@@ -19,7 +19,9 @@ from playwright.sync_api import sync_playwright
 
 DOCS = Path(__file__).parent.parent / "docs"
 OUT  = DOCS / "preview.png"
-URL  = "https://mt-climate-office.github.io/mesonet-photos/"
+# The Pages origin, loaded directly, so regenerating the card does not depend
+# on the UMT reverse proxy that serves the canonical mesonet.climate.umt.edu/photos/.
+URL  = "https://mt-climate-office.github.io/mesonet-photo-explorer/"
 
 
 def main() -> None:
