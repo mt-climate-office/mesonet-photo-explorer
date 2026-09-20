@@ -70,7 +70,7 @@ resource "aws_cloudfront_distribution" "photos" {
   tags            = local.common_tags
 
   origin {
-    domain_name              = aws_s3_bucket.photos.bucket_regional_domain_name
+    domain_name              = data.aws_s3_bucket.photos.bucket_regional_domain_name
     origin_id                = "s3-${var.s3_bucket_name}"
     origin_access_control_id = aws_cloudfront_origin_access_control.photos.id
   }

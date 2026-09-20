@@ -51,13 +51,13 @@ resource "aws_iam_role_policy" "github_actions" {
           "s3:PutObject",
           "s3:DeleteObject",
         ]
-        Resource = "${aws_s3_bucket.photos.arn}/*"
+        Resource = "${data.aws_s3_bucket.photos.arn}/*"
       },
       {
         Sid      = "S3ListBucket"
         Effect   = "Allow"
         Action   = "s3:ListBucket"
-        Resource = aws_s3_bucket.photos.arn
+        Resource = data.aws_s3_bucket.photos.arn
       },
       {
         Sid    = "CloudFrontInvalidate"

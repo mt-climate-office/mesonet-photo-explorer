@@ -1,6 +1,6 @@
 output "s3_bucket_name" {
   description = "S3 bucket for photos and manifest"
-  value       = aws_s3_bucket.photos.bucket
+  value       = data.aws_s3_bucket.photos.bucket
 }
 
 output "cloudfront_domain" {
