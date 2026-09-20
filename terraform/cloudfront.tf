@@ -64,7 +64,7 @@ resource "aws_cloudfront_response_headers_policy" "cors" {
 # ── Distribution ──────────────────────────────────────────────────────────────
 
 resource "aws_cloudfront_distribution" "photos" {
-  enabled         = true
+  enabled         = false # D1: disabled ahead of destruction (repo retirement)
   is_ipv6_enabled = true
   comment         = "Mesonet photo explorer — ${var.s3_bucket_name}"
   tags            = local.common_tags
