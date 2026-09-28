@@ -41,13 +41,24 @@ the slot's local `HH:MM` must be in its `slots_local`, and the date must be on o
 `first_month + "-01"`. So a camera moved at 13:21 MT shows its old views at 09:00 and
 its new ones at 15:00 that day, and history renders what was actually shot.
 
-**Only 09:00 and 15:00 are shown for now**, although many cameras are hourly. The
-`#time-input` options are the single source of truth: they feed `SHOWN_SLOTS` (which
-filters each view's `slots_local` at parse), `computeMaxTimestep`, `previousSlot` and the
-harness. Going hourly is an `index.html` edit plus a rethink of `SLOT_FALLBACK_MAX`
-(4 slots ≈ 2 days now, ≈ 4 hours hourly). The date picker floor is the constant
-`PHOTOS_MIN_DATE` (2022-09-22, the old API's network-wide start); the schedule's
-`first_month` reaches back to 2016-12 for a few stations but coverage there is sparse.
+**The Time menu is built per selected date from the schedule** (`slotsForDate`): a slot
+is offered on a date when at least half of the stations shooting anything that day shoot
+it (period-aware, at that date's UTC instant). So dates before 2026-09-20 offer 09:00/15:00,
+later dates 09:00/12:00/15:00, and the 2026-09-11..20 hourly pilot (~30 cameras) never
+reaches the menu. The static `<option>`s in `index.html` are only a pre-load placeholder.
+`computeMaxTimestep`, `previousSlot`, `clampDate` and `resolveInitialTimestep` all read
+`slotsForDate`; `SLOT_FALLBACK_MAX` (6) is sized in slots (≈2 days at 3/day). Today's
+not-yet-cleared slots are listed but `disabled` ("(not yet available)"), and today is
+unreachable until its first slot clears the lag (`dateInput.max` is refreshed by
+`computeMaxTimestep`). Every date change funnels through `clampDate()`, which resolves the
+time from the sticky preference `_wantedTime` (the last `?time`/user pick): wanted slot if
+offered, else the next later one that day, else the last; a bare `?date=` lands on the
+day's first slot. A move is toasted once — batched across a hold-to-repeat run
+(`_pendingRoll`/`flushRoll`). `arrivals.json` in the same directory is deliberately NOT
+read: as published it is a stale two-day snapshot; the hook point is noted in
+`slotsForDate`. The date picker floor is the constant `PHOTOS_MIN_DATE` (2022-09-22, the
+old API's network-wide start); the schedule's `first_month` reaches back to 2016-12 for a
+few stations but coverage there is sparse.
 `thumbPhotoUrl`/`largePhotoUrl` are hardcoded and must agree with the file's `patterns`.
 
 Known upstream data oddity (fix in mesonet-cameras `data/rollout.json`, not here): the

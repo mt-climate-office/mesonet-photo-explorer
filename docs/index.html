@@ -370,8 +370,11 @@
 
     <div class="control-group">
       <label class="control-label" for="time-input">Time</label>
+      <!-- Placeholder only: app.js rebuilds these per selected date from the
+           camera schedule (slotsForDate). -->
       <select class="time-select" id="time-input">
         <option value="09:00:00">9:00 AM</option>
+        <option value="12:00:00">12:00 PM</option>
         <option value="15:00:00" selected>3:00 PM</option>
       </select>
     </div>
@@ -478,7 +481,7 @@
     <div class="info-section">
       <h3>Using the Photo Explorer</h3>
       <ul>
-        <li><strong>Date &amp; Time</strong> — Browse any date at 9 AM or 3 PM Mountain Time; use ▲▼ to step day by day. All times are Mountain Time.</li>
+        <li><strong>Date &amp; Time</strong> — Browse any date; the Time menu lists the hours the cameras were scheduled to shoot that day (currently 9 AM, noon and 3 PM Mountain Time; 9 AM and 3 PM before September 20, 2026). Use ▲▼ to step day by day — if the chosen hour wasn't shot on a day, the next one that was is shown. All times are Mountain Time.</li>
         <li><strong>Direction</strong> — Pick a camera angle to show that view across all stations at once.</li>
         <li><strong>Search</strong> — Press <kbd>/</kbd> to jump to the search box, then <kbd>↑</kbd>/<kbd>↓</kbd> + <kbd>Enter</kbd> to fly to a station and open its gallery.</li>
         <li><strong>Click a station</strong> — Open a photo gallery for that station; click or press <kbd>Enter</kbd> on any photo to enlarge it. Use <kbd>←</kbd>/<kbd>→</kbd> (or the arrow buttons) to step through stations; swipe the enlarged photo on touch screens.</li>

@@ -33,9 +33,11 @@ A station's cell appears once it is an active HydroMet station with photos onlin
 nothing in this repo needs to be rebuilt when a station is added or removed.**
 
 The schedule's dated periods make history render what was actually shot: a moved camera
-shows its old views before the move and its new ones after. The UI exposes only the 09:00
-and 15:00 Mountain Time slots for now, although the schedule records hourly capture for a
-growing share of cameras.
+shows its old views before the move and its new ones after. The Time menu is built from the
+same schedule for whichever date is selected: it offers the Mountain Time slots that at least
+half of the cameras shot that day (09:00 and 15:00 before 20 September 2026; 09:00, 12:00
+and 15:00 since), so a change of cadence upstream appears here without a code change. If the
+chosen hour wasn't shot on a day, the next one that was is shown.
 
 **This repo owns no photo processing and no AWS resources.** The capture, WebP rendering
 and schedule publishing live in
