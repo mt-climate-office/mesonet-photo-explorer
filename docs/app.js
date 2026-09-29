@@ -1442,7 +1442,9 @@ function updateSocialMeta() {
   const title = `Montana Mesonet Photos · ${dateFmt} · ${timeFmt} · ${label}`;
   const desc  = `Montana weather station photos for ${dateFmt} at ${timeFmt}, ${label} direction. ` +
                 `A service of the Montana Climate Office.`;
-  document.title = title;
+  // The tab keeps the short site name ("Photos · MT Mesonet"), matching
+  // the Explorer and UMRB Build maps; the dated title goes only to the social cards.
+  document.title = "Photos · MT Mesonet";
   const previewUrl = new URL("preview.png", location.href).href;
   const set = (sel, content) => document.querySelector(sel)?.setAttribute("content", content);
   set('meta[property="og:title"]', title);
