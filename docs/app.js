@@ -280,7 +280,7 @@ function syncTimeOptions(dateStr) {
     const o = document.createElement('option');
     o.value = value;
     o.disabled = disabled;
-    o.textContent = disabled ? `${slotLabel(value)} (not yet available)` : slotLabel(value);
+    o.textContent = slotLabel(value);   // disabled styling alone marks a pending slot
     return o;
   }));
   timeInput.value = selected;   // "" if it's gone — resolveTimeForDate always follows

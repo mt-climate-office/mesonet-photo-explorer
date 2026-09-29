@@ -48,7 +48,7 @@ later dates 09:00/12:00/15:00, and the 2026-09-11..20 hourly pilot (~30 cameras)
 reaches the menu. The static `<option>`s in `index.html` are only a pre-load placeholder.
 `computeMaxTimestep`, `previousSlot`, `clampDate` and `resolveInitialTimestep` all read
 `slotsForDate`; `SLOT_FALLBACK_MAX` (6) is sized in slots (≈2 days at 3/day). Today's
-not-yet-cleared slots are listed but `disabled` ("(not yet available)"), and today is
+not-yet-cleared slots are listed but `disabled` (grayed, no suffix, so the `<select>` keeps its width), and today is
 unreachable until its first slot clears the lag (`dateInput.max` is refreshed by
 `computeMaxTimestep`). Every date change funnels through `clampDate()`, which resolves the
 time from the sticky preference `_wantedTime` (the last `?time`/user pick): wanted slot if
