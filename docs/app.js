@@ -124,6 +124,8 @@ const _slotsByDate  = new Map();      // "YYYY-MM-DD" → ["HH:MM:SS", …] the 
 let _wantedTime  = null;              // "HH:MM:SS" the user or URL last chose explicitly; date changes resolve from it
 let _pendingRoll = null;              // { from, to, reason } — a time move not yet announced (hold-to-repeat batches them)
 let _allDirs   = [];                  // tokens present anywhere in the schedule, DIR_ORDER first, unknowns appended sorted
+let _shownDirs = [];                  // the subset of _allDirs the direction controls currently offer (dirsForSlot)
+let _wantedDir = null;                // token the user or URL last chose explicitly; slot changes resolve from it
 let _viewNames = {};                  // token → the schedule's `view` name (label fallback for tokens DIR_LABELS lacks)
 let currentDir;
 let showCounties;
@@ -501,11 +503,13 @@ async function resolveInitialTimestep() {
 
   for (let step = 0; step <= SLOT_FALLBACK_MAX; step++) {
     const dt = `${date}T${time}`;
-    const valid = _activeFeatures.filter(f => isValidForSlot(f.station, currentDir, dt));
+    // Probe the direction this slot would actually show (see syncDirections).
+    const dir   = resolveDir(dirsForSlot(dt));
+    const valid = _activeFeatures.filter(f => isValidForSlot(f.station, dir, dt));
     if (valid.length) {
       const sample = pickSpread(valid, SLOT_PROBE_SAMPLE);
       const crops = await Promise.all(
-        sample.map(f => loadCrop(thumbPhotoUrl(f.station, dt, currentDir))));
+        sample.map(f => loadCrop(thumbPhotoUrl(f.station, dt, dir))));
       const hits = crops.filter(Boolean).length;
       // Good enough to show as-is — stop probing.
       if (hits >= Math.ceil(sample.length * SLOT_ACCEPT_RATIO)) {
@@ -653,7 +657,42 @@ async function loadData() {
     ...[...tokens].filter(d => !DIR_ORDER.includes(d)).sort(),
   ];
   if (!_allDirs.includes(currentDir)) currentDir = _allDirs.includes(DEFAULT_DIR) ? DEFAULT_DIR : _allDirs[0];
-  buildDirectionControls(_allDirs);
+  _wantedDir = currentDir;
+  syncDirections();
+}
+
+// The directions the controls offer at slot `dtStr`: those at least one placed
+// station was scheduled to shoot then (period-aware, via isValidForSlot). So the
+// retired sky cameras' NS/SS appear only for slots some camera still shot them.
+// Never empty — a slot nobody shot keeps the full list rather than no controls.
+function dirsForSlot(dtStr) {
+  const dirs = _allDirs.filter(d => _activeFeatures.some(f => isValidForSlot(f.station, d, dtStr)));
+  return dirs.length ? dirs : _allDirs.slice();
+}
+// Which offered direction to show: the wanted one if offered, else N, else the first.
+function resolveDir(dirs) {
+  return dirs.includes(_wantedDir) ? _wantedDir : dirs.includes(DEFAULT_DIR) ? DEFAULT_DIR : dirs[0];
+}
+// Fit the direction controls to the selected slot, moving off a direction the
+// slot doesn't offer (and back onto the wanted one when it returns). Called by
+// every render, so each date/time change lands here. Leaving the wanted
+// direction is toasted; returning to it is not.
+function syncDirections() {
+  const dirs = dirsForSlot(getSelectedDateTime());
+  const next = resolveDir(dirs);
+  const from = currentDir;
+  currentDir = next;
+  if (dirs.join() !== _shownDirs.join()) {
+    _shownDirs = dirs;
+    buildDirectionControls(dirs);
+  } else if (next !== from) {
+    reflectDirection();
+  }
+  if (next === from) return;
+  if (from === _wantedDir && !_exportParam) {
+    MCO.showToast(`No ${dirLabel(from)} photos at this time — showing ${dirLabel(next)}.`, 5000);
+  }
+  if (_mapReady) updateUrl();   // before that, map.on('load') publishes the first URL
 }
 
 // ── Direction controls (segmented buttons + narrow-screen <select>) ───────────
@@ -680,12 +719,15 @@ function buildDirectionControls(allDirs) {
     dirSelectEl.append(opt);
   });
 }
-function setDirection(dir) {
-  currentDir = dir;
+function reflectDirection() {
   document.querySelectorAll("#dir-btns .seg-btn").forEach(b =>
     b.setAttribute("aria-pressed", b.dataset.dir === currentDir ? "true" : "false"));
   const ds = document.getElementById("dir-select");
   if (ds) ds.value = currentDir;
+}
+function setDirection(dir) {
+  currentDir = _wantedDir = dir;
+  reflectDirection();
   updateUrl();
   refreshMapImages();
 }
@@ -808,6 +850,7 @@ function loadCrop(url) {
 // raster but keep the (empty, still-clickable) cell.
 function refreshMapImages() {
   if (!map.getLayer('cells-fill')) return;
+  syncDirections();
   const dt = getSelectedDateTime();
   const token = ++_refreshToken;
 
