@@ -6,7 +6,7 @@ The Montana Mesonet Photo Explorer: a static MapLibre single-page app in `docs/`
 ## House style
 
 This app consumes mco-web-style (pinned + SRI in `docs/index.html`; currently
-**v0.6.0** — check the tag in that file rather than trusting this line). Design tokens, a11y mandates, and interaction conventions: see
+**v0.7.0** — check the tag in that file rather than trusting this line). Design tokens, a11y mandates, and interaction conventions: see
 HOUSE-STYLE.md in https://github.com/mt-climate-office/mco-web-style — tokens
 only (no raw hexes), `--accent` is fill-only, `aria-pressed` drives toggle
 styling, canvas data needs a live region + sr-only table twin. To change shared
@@ -118,10 +118,11 @@ harness (untracked; install `playwright` + `@axe-core/playwright` with
 `--no-save`). Gotchas that have cost time here:
 - The harness's `renderEvidence` must be a **function**, not a string — a string
   predicate is `eval`'d in-page and the CSP has no `'unsafe-eval'`.
-- Run a block's console-clean check **before** its axe run, or filter
-  `fonts.googleapis.com` out of it: axe's color-contrast rule fetches the
-  cross-origin Google Fonts stylesheet and the CSP blocks it. That error is the
-  harness, not the app.
+- (Resolved by kit 0.7.0.) axe's color-contrast rule used to fetch the
+  cross-origin Google Fonts stylesheet and trip the CSP, so console checks had
+  to run before axe or filter `fonts.googleapis.com`. The fonts are kit-hosted
+  now and there is no Google Fonts stylesheet to fetch; if a CSP error shows up
+  during an axe run again, it is real.
 - `connect-src` must include `data:`: MapLibre fetches an `image` source's url,
   and every photo is a cover-cropped canvas data URL. Without it the entire
   mosaic silently fails to paint.

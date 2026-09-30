@@ -12,10 +12,10 @@
        fails to paint. -->
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'none';
-    script-src 'self' 'sha256-CoyZLTny4Ms0ntaZBXFoDdIGaegMzPM1QXUml5kCP4Q=' https://unpkg.com https://cdn.jsdelivr.net;
+    script-src 'self' 'sha256-o+rXj9Jy2CUuPoewBVeBz2GYT71qiUGzjc3SklYSaSw=' https://unpkg.com https://cdn.jsdelivr.net;
     worker-src blob:;
-    style-src 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://cdn.jsdelivr.net;
-    font-src https://fonts.gstatic.com;
+    style-src 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net;
+    font-src https://cdn.jsdelivr.net;
     img-src 'self' data: blob: https://data2.climate.umt.edu;
     connect-src 'self' data: https://mesonet2.climate.umt.edu https://data2.climate.umt.edu https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com;
     base-uri 'none';
@@ -65,20 +65,25 @@
       const t = valid.includes(url) ? url
               : valid.includes(saved) ? saved
               : (prefersDark ? 'dark' : 'light');
-      document.documentElement.setAttribute('data-theme', t);
+      const root = document.documentElement;
+      root.setAttribute('data-theme', t);
+      root.classList.toggle('is-compact', window.matchMedia('(max-width: 640px), (max-height: 560px)').matches);
+      root.classList.toggle('is-touch', window.matchMedia('(hover: none)').matches);
     })();
   </script>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Space+Mono&display=swap" rel="stylesheet">
+  <!-- House fonts: kit-hosted (mco-web-style 0.7.0), declared in mco-theme.css.
+       Preloaded so the first frame is already in Outfit — no system-font flash.
+       Same @version as the theme CSS; crossorigin is required on font preloads. -->
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.0/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.0/fonts/space-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.18.0/dist/maplibre-gl.css"
         integrity="sha384-q7EDwLXBfakVimqzBJqFCTxpgy7B18buhebV158qkVMCEVAaUnU3fQTEfWgYz+7g"
         crossorigin="anonymous">
   <!-- mco-web-style: tokens (3 themes), a11y utilities, navbar/toast/tooltip/
        modal shells, MapLibre polish. Pinned + SRI per house policy. -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.6.0/theme/mco-theme.css"
-        integrity="sha384-bCKsV+qD6GxtndFeAmhumsOdsaznA4xXBh6mfwHgvRbxTMPoOwClDB3HjZuy42fp"
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.0/theme/mco-theme.css"
+        integrity="sha384-ZhJv93Wa+kWlQTfY8SIMNf5nXoVvIF9s/SMQHCimI5xHu7SvscGgts5EpuWSkkdz"
         crossorigin="anonymous">
 
   <style>
@@ -576,10 +581,10 @@
         integrity="sha384-MYTfGytf3SxNyO7ZAu/U0wHCcs3NpqE92Q3wBz5PQhat8kEA/wbwb9qY6H/JLyuR"
         crossorigin="anonymous"></script>
 <!-- mco-web-style (window.MCO / MCO.map) -->
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.6.0/core/mco-core.js"
-        integrity="sha384-DPbXD2xVhws/XeQ5zgnH5fpba972pw9yafpaHL8phz43iEwktW1RLoID4eqRFYue"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.0/core/mco-core.js"
+        integrity="sha384-ZOGCREEJsO8sY1wJ7eS/Q7K7NdZAHF+LxSMoO3ZGqBtEVISX3616cGomCW418hXH"
         crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.6.0/map/mco-map.js"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.0/map/mco-map.js"
         integrity="sha384-0aF67+MSXmcocGs8r3qiehgDNzgXo9F48olS5OX575wO2llw2cuGcqLpd6+L7D76"
         crossorigin="anonymous"></script>
 <script src="app.js"></script>
