@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Generate docs/preview.png by loading the live GitHub Pages site with
-?export=dark and intercepting the PNG download that the export button triggers.
+?export=light&dir=W (west view, light
+theme) and intercepting the PNG download that the export button triggers.
 
 The resulting image is committed to docs/ and used as the og:image social
 preview for the GitHub Pages site.
@@ -22,6 +23,8 @@ OUT  = DOCS / "preview.png"
 # The Pages origin, loaded directly, so regenerating the card does not depend
 # on the UMT reverse proxy that serves the canonical mesonet.climate.umt.edu/photos/.
 URL  = "https://mt-climate-office.github.io/mesonet-photo-explorer/"
+# West-facing photos in the light theme.
+QUERY = "export=light&dir=W"
 
 
 def main() -> None:
@@ -30,7 +33,7 @@ def main() -> None:
         ctx = browser.new_context(
             viewport={"width": 1400, "height": 700},
             accept_downloads=True,
-            color_scheme="dark",   # match the app's default dark theme
+            color_scheme="light",  # match the forced ?export=light theme
         )
         page = ctx.new_page()
 
@@ -38,13 +41,13 @@ def main() -> None:
         page.on("console", lambda msg: print(f"  [{msg.type}] {msg.text}") if msg.type != "log" else None)
         page.on("pageerror", lambda err: print(f"  [pageerror] {err}"))
 
-        # ?export=dark triggers btn-export.click() after a 4-second delay that
+        # ?export=light triggers btn-export.click() after a 4-second delay that
         # allows map data to load.  page.expect_download() is the correct
         # page-level API for intercepting downloads in Playwright.
-        print(f"Loading {URL}?export=dark and waiting for export download…")
+        print(f"Loading {URL}?{QUERY} and waiting for export download…")
         with page.expect_download(timeout=60_000) as dl:
             page.goto(
-                f"{URL}?export=dark",
+                f"{URL}?{QUERY}",
                 wait_until="domcontentloaded",
                 timeout=30_000,
             )

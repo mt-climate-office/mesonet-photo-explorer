@@ -104,7 +104,7 @@ This repo owns no AWS resources and no photo processing: the pipeline lives in
 mesonet-cameras, the bucket in mco-aws (`stacks/mco-mesonet-bucket`), the CDN in
 mco-data-cdn.
 
-`scripts/generate_preview.py` drives the live page headlessly via `?export=dark`
+`scripts/generate_preview.py` drives the live page headlessly via `?export=light&dir=W`
 plus a 4-second delay before clicking `#btn-export`. That timing, the param, and
 the button id are a contract — changing them silently breaks the social preview
 in production. Run it locally against your changes first.

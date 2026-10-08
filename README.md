@@ -98,7 +98,7 @@ mco-web-style's `MIGRATING.md` § "Verification recipe": `node --check docs/app.
 `docs/preview.png` back to `main`** — always pull/rebase before pushing, or you race it.
 
 `scripts/generate_preview.py` drives the live page headlessly: it loads the Pages origin
-with `?export=dark`, which clicks `#btn-export` after a 4-second delay and yields the PNG
+with `?export=light&dir=W` (west view, light theme), which clicks `#btn-export` after a 4-second delay and yields the PNG
 as a download. That timing, the query parameter and the button id are a contract —
 changing them silently breaks the social preview in production. Run the script locally
 against your changes first:
