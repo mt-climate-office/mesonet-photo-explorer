@@ -30,7 +30,7 @@ Marked kit-overrides in this app:
   cycle) and `#nav-drawer` (brand + `.controls` + `.nav-meta`, `display: contents`
   elsewhere) is a slide-out drawer over `.mco-scrim`, with `#main` inert while
   open. The CSS "RAIL MODE" block and `RAIL_MQ` in app.js must agree. Prototyped
-  here for the kit (filed upstream in mco-web-style); promote it rather than
+  here for the kit (mco-web-style #38, building on #5/#11); promote it rather than
   copy it if a second app wants it.
 
 ## Camera schedule source
