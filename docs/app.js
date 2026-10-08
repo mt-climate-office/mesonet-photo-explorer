@@ -28,7 +28,7 @@ const LOGO_URL        = "assets/mco-logo.png";   // vendored — never hot-link 
 
 const DIR_ORDER  = ["N", "S", "E", "W", "SNOW", "NS", "SS"];
 const DIR_LABELS = { N: "North", S: "South", E: "East", W: "West", SNOW: "Snow", NS: "North Sky", SS: "South Sky" };
-const DEFAULT_DIR = "N";
+const DEFAULT_DIR = "W";
 // Curated labels win over the schedule's `view` names (which are literally "NS"/
 // "SS" for the sky cameras); a token the kit has never seen falls back to them.
 function dirLabel(d) { return DIR_LABELS[d] || _viewNames[d] || d; }
@@ -425,7 +425,7 @@ _wantedTime      = _timeParam;
 timeInput.value  = _timeParam ?? _maxTs.time;
 // Provisional: the real check is against the schedule's token set in loadData(),
 // which runs before anything renders — so a token DIR_ORDER has never heard of
-// isn't silently reset to N here.
+// isn't silently reset to DEFAULT_DIR here.
 const _dirParam = (getLower("dir") || "").toUpperCase();
 currentDir = /^[A-Z0-9]+$/.test(_dirParam) ? _dirParam : DEFAULT_DIR;
 // Persisted values are re-validated exactly like URL params — another MCO app
