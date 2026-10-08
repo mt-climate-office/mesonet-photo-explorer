@@ -718,12 +718,14 @@ function buildDirectionControls(allDirs) {
     opt.selected = dir === currentDir;
     dirSelectEl.append(opt);
   });
+  updateRail();
 }
 function reflectDirection() {
   document.querySelectorAll("#dir-btns .seg-btn").forEach(b =>
     b.setAttribute("aria-pressed", b.dataset.dir === currentDir ? "true" : "false"));
   const ds = document.getElementById("dir-select");
   if (ds) ds.value = currentDir;
+  updateRail();
 }
 function setDirection(dir) {
   currentDir = _wantedDir = dir;
@@ -736,6 +738,11 @@ document.getElementById("dir-btns").addEventListener("click", (e) => {
   if (btn) setDirection(btn.dataset.dir);
 });
 document.getElementById("dir-select").addEventListener("change", (e) => setDirection(e.target.value));
+// Rail: one button steps through the directions the selected slot offers.
+document.getElementById("btn-rail-dir").addEventListener("click", () => {
+  const dirs = dirsForSlot(getSelectedDateTime());
+  setDirection(dirs[(dirs.indexOf(currentDir) + 1) % dirs.length]);
+});
 
 // ── Layers ────────────────────────────────────────────────────────────────────
 function addLayerOnce(cfg) { if (!map.getLayer(cfg.id)) map.addLayer(cfg); }
@@ -1066,8 +1073,12 @@ function selectStation(stationId) {
   // closing the dialog returns them there. In collapsed mode that's the toggle
   // — the field itself is display:none once the overlay closes, and focusing a
   // hidden element silently drops focus to <body>.
-  const opener = searchCollapse.isCollapsed() ? btnSearchToggle : searchInput;
+  // In rail mode the field is in the drawer, which closes here — so the menu
+  // button, which stays on screen, takes focus back when the gallery closes.
+  const opener = RAIL_MQ.matches ? btnMenu
+               : searchCollapse.isCollapsed() ? btnSearchToggle : searchInput;
   searchCollapse.close({ restoreFocus: false });
+  closeDrawer({ restoreFocus: false });
   flyToAndOpen(stationId, opener);
 }
 function setActiveSearchItem(idx) {
@@ -1086,8 +1097,8 @@ searchInput.addEventListener('blur',  () => setTimeout(hideSearchDropdown, 120))
 searchInput.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     // Esc closes the dropdown first, then the overlay — one step at a time.
-    if (!searchDropdown.hidden) { searchInput.value = ''; hideSearchDropdown(); return; }
-    if (searchCollapse.isOpen()) { searchCollapse.close(); return; }
+    if (!searchDropdown.hidden) { e.preventDefault(); searchInput.value = ''; hideSearchDropdown(); return; }
+    if (searchCollapse.isOpen()) { e.preventDefault(); searchCollapse.close(); return; }
     searchInput.value = '';
     return;
   }
@@ -1405,14 +1416,16 @@ function stopHold() {
   flushRoll();
   refreshMapImages();
 }
-const _btnDatePrev = document.getElementById("btn-date-prev");
-const _btnDateNext = document.getElementById("btn-date-next");
-_btnDatePrev.addEventListener("mousedown",  (e) => { e.preventDefault(); startHold(-1); });
-_btnDateNext.addEventListener("mousedown",  (e) => { e.preventDefault(); startHold(+1); });
-_btnDatePrev.addEventListener("touchstart", (e) => { e.preventDefault(); startHold(-1); }, { passive: false });
-_btnDateNext.addEventListener("touchstart", (e) => { e.preventDefault(); startHold(+1); }, { passive: false });
-_btnDatePrev.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (stepDate(-1)) { flushRoll(); refreshMapImages(); } } });
-_btnDateNext.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (stepDate(+1)) { flushRoll(); refreshMapImages(); } } });
+// The navbar stepper and the landscape rail's day buttons share one wiring.
+function wireDateStep(btn, delta) {
+  btn.addEventListener("mousedown",  (e) => { e.preventDefault(); startHold(delta); });
+  btn.addEventListener("touchstart", (e) => { e.preventDefault(); startHold(delta); }, { passive: false });
+  btn.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (stepDate(delta)) { flushRoll(); refreshMapImages(); } } });
+}
+wireDateStep(document.getElementById("btn-date-prev"), -1);
+wireDateStep(document.getElementById("btn-date-next"), +1);
+wireDateStep(document.getElementById("btn-rail-prev"), -1);
+wireDateStep(document.getElementById("btn-rail-next"), +1);
 document.addEventListener("mouseup", stopHold);
 document.addEventListener("touchend", stopHold);
 document.addEventListener("touchcancel", stopHold);
@@ -1460,6 +1473,63 @@ async function copyShareLink() {
 }
 document.getElementById("btn-share").addEventListener("click", copyShareLink);
 
+// ── Landscape rail + drawer (app-local prototype) ─────────────────────────────
+// On short landscape screens the navbar is a left rail (CSS "RAIL MODE") and
+// the full control set lives in a slide-out drawer. Disclosure semantics: the
+// menu button carries aria-expanded; opening moves focus in and makes the map
+// inert (it sits under a scrim); Esc, the scrim, or the button close it and
+// focus returns to the button. KEEP IN SYNC with the CSS media query.
+const RAIL_MQ    = window.matchMedia('(max-height: 560px) and (orientation: landscape)');
+const navDrawer  = document.getElementById('nav-drawer');
+const btnMenu    = document.getElementById('btn-menu');
+const railScrim  = document.getElementById('rail-scrim');
+
+function isDrawerOpen() { return navDrawer.classList.contains('is-open'); }
+function openDrawer(focusEl) {
+  navDrawer.classList.add('is-open');
+  btnMenu.setAttribute('aria-expanded', 'true');
+  railScrim.hidden = false;
+  mainEl.inert = true;
+  // display flips synchronously with the class, so the target is focusable now.
+  (focusEl || navDrawer.querySelector('input, select, button')).focus();
+}
+function closeDrawer({ restoreFocus = true } = {}) {
+  if (!isDrawerOpen()) return;
+  navDrawer.classList.remove('is-open');
+  btnMenu.setAttribute('aria-expanded', 'false');
+  railScrim.hidden = true;
+  mainEl.inert = false;
+  if (restoreFocus) btnMenu.focus();
+}
+btnMenu.addEventListener('click', () => { if (isDrawerOpen()) closeDrawer(); else openDrawer(); });
+railScrim.addEventListener('click', () => closeDrawer());
+navDrawer.addEventListener('keydown', (e) => {
+  // The search field consumes its own Esc first (dropdown, then overlay).
+  if (e.key === 'Escape' && isDrawerOpen() && !e.defaultPrevented) { e.preventDefault(); closeDrawer(); }
+});
+// Leaving rail mode (rotation) turns the drawer back into the navbar row.
+RAIL_MQ.addEventListener('change', () => closeDrawer({ restoreFocus: false }));
+// Export and the dialogs need the map visible, so they close the drawer first.
+for (const id of ['btn-export', 'btn-info']) {
+  document.getElementById(id).addEventListener('click', () => closeDrawer({ restoreFocus: false }));
+}
+
+// Date/time/direction at a glance, since the drawer is usually closed.
+// A function declaration with its own lookups: buildDirectionControls and
+// updateUrl may call it before this part of the script has run.
+function updateRail() {
+  const railReadout = document.getElementById('rail-readout');
+  const btnRailDir  = document.getElementById('btn-rail-dir');
+  if (!dateInput.value || !timeInput.value) return;
+  const d = new Date(`${dateInput.value}T12:00:00Z`);
+  const md = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  railReadout.replaceChildren(...[md, String(d.getUTCFullYear()), slotLabel(timeInput.value)].map(t => {
+    const span = document.createElement('span'); span.textContent = t; return span;
+  }));
+  btnRailDir.textContent = currentDir === 'SNOW' ? 'Snow' : currentDir;
+  btnRailDir.setAttribute('aria-label', `Camera direction ${dirLabel(currentDir)}. Switch to next direction`);
+}
+
 // ── Global keyboard shortcuts ─────────────────────────────────────────────────
 // Single-character shortcuts are gated by ?kbd=off (WCAG 2.1.4). Esc is not a
 // printable character, so the dialogs' native Esc handling stays live either way.
@@ -1469,6 +1539,8 @@ window.addEventListener("keydown", (e) => {
     const t = e.target;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
     e.preventDefault();
+    // Rail mode: the field lives in the drawer.
+    if (RAIL_MQ.matches) { openDrawer(searchInput); return; }
     // Below 460px the field is collapsed — open the overlay instead of focusing
     // a hidden input (which would silently do nothing).
     if (searchCollapse.isCollapsed()) { searchCollapse.open(); return; }
@@ -1516,6 +1588,7 @@ function updateUrl() {
   if (!kbdShortcuts) params.kbd = 'off';   // preserve the a11y opt-out across navigation
   MCO.replaceUrlState(params);
   updateSocialMeta();
+  updateRail();
 }
 
 // ── Export (PNG with MCO branding) ────────────────────────────────────────────

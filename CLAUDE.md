@@ -25,6 +25,13 @@ Marked kit-overrides in this app:
   ≤750px — that is the kit default, not an override. Search collapsing to an icon
   + overlay at ≤640px is the kit's `.mco-search-collapse` component (this app
   prototyped it; mesonet-status adopting it is what moved it into the kit).
+- **Landscape rail** — at `(max-height: 560px) and (orientation: landscape)` the
+  navbar becomes a 56px left rail (menu, day ▲/▼, date/time readout, direction
+  cycle) and `#nav-drawer` (brand + `.controls` + `.nav-meta`, `display: contents`
+  elsewhere) is a slide-out drawer over `.mco-scrim`, with `#main` inert while
+  open. The CSS "RAIL MODE" block and `RAIL_MQ` in app.js must agree. Prototyped
+  here for the kit (filed upstream in mco-web-style); promote it rather than
+  copy it if a second app wants it.
 
 ## Camera schedule source
 
