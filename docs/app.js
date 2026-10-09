@@ -79,8 +79,6 @@ const EXPORT_SCALE = 2;   // → 2800×1400 output, independent of the device's 
 const CROP_SIZE = 320;
 const BLANK_IMG = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 
-const cssVar = (n, fallback) =>
-  getComputedStyle(document.documentElement).getPropertyValue(n).trim() || fallback;
 const once = (m, ev) => new Promise((r) => m.once(ev, r));
 
 
@@ -841,10 +839,14 @@ function addCustomLayers() {
                  layout: { visibility: overlayVis }, paint: paints.tribalLine });
 
   addLayerOnce({ id: 'cells-outline', type: 'line', source: 'cells',
-                 paint: { 'line-color': cssVar('--border', '#3a4558'), 'line-width': 0.8, 'line-opacity': 0.9 } });
+                 paint: { 'line-color': MCO.cssVar('--border'), 'line-width': 0.8, 'line-opacity': 0.9 } });
   // Transparent fill on top for hit-testing + hover highlight (feature-state).
+  // The highlight is the kit's selection color, read at paint time from
+  // MCO.map.selectionPaint() (--selection-ring). That paint is a circle ring
+  // and this is a fill, so only its color is taken. The old '#5aaee8'
+  // fallback was the dark-theme value (wrong on light).
   addLayerOnce({ id: 'cells-fill', type: 'fill', source: 'cells',
-                 paint: { 'fill-color': cssVar('--selection-ring', '#5aaee8'),
+                 paint: { 'fill-color': MCO.map.selectionPaint()['circle-stroke-color'],
                           'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.32, 0] } });
 
   // Reservation labels on top, toggled with the rest of the boundary overlays.
@@ -1714,7 +1716,7 @@ async function exportPNG() {
     xm.addSource('cells', { type: 'geojson', data: _cellsFC });
     xm.addLayer({ id: 'cells-outline', type: 'line', source: 'cells',
                   filter: ['in', ['get', 'station'], ['literal', validIds]],
-                  paint: { 'line-color': cssVar('--border', '#3a4558'), 'line-width': 0.8, 'line-opacity': 0.9 } });
+                  paint: { 'line-color': MCO.cssVar('--border'), 'line-width': 0.8, 'line-opacity': 0.9 } });
 
     // Reservation labels on top — only when the toggle is on.
     if (showCounties) {
