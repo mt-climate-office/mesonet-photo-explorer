@@ -14,8 +14,14 @@ styling, change the kit and bump the pinned version here; never patch a local
 copy.
 
 App-local by deliberate kit decision (do NOT extract): the photo-mosaic
-machinery, the gallery/lightbox dialogs, the date stepper, the direction
-segments + `<select>` fallback, `updateSocialMeta`, and the branded PNG export.
+machinery, the gallery/lightbox dialogs, and the branded PNG export. Since kit
+0.9.0 these are the kit's — don't re-grow local copies: the date steppers
+(`MCO.initStepper`), the direction segments' `<select>` fallback
+(`MCO.initSegmentedFallback`), the search combobox (`MCO.initSearchBox`),
+the social/tab titles (`MCO.setSocialMeta` / `setPageTitle`), the announcer
+(`MCO.announce`), the table twin (`MCO.srTable`), and the basemap failure
+fallback (`MCO.map.watchBasemap`). The social card image stays the
+bot-regenerated `docs/preview.png`, not the kit's og-card.
 
 Marked kit-overrides in this app:
 - **No hillshade** — the photo mosaic is the figure; relief under opaque photo
