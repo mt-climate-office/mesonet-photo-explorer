@@ -1542,9 +1542,18 @@ function updateUrl() {
   const params = { date: dateInput.value, time: +m ? `${h}:${m}` : parseInt(h) };
   if (currentDir !== DEFAULT_DIR) params.dir = currentDir;
   if (showCounties) params.overlay = "counties";
+  // Clean-URL defaults (HOUSE-STYLE §4): the theme only when it differs from
+  // the OS preference a visitor with no choice would get, and the camera only
+  // away from the default Montana extent. Old links carrying either still
+  // work: the anti-flash script reads ?theme=, initialCamera reads the camera.
   const theme = MCO.getTheme();
-  if (theme) params.theme = theme;
-  if (_mapReady && map) Object.assign(params, MCO.map.cameraParams(map));
+  if (theme !== MCO.osTheme()) params.theme = theme;
+  // With a gallery open the camera is always written: a reload or shared link
+  // with ?station= and a camera opens the gallery in place, while a bare
+  // ?station= link flies to the station first (map 'load' handler).
+  if (_mapReady && map) {
+    Object.assign(params, _selectedStation ? MCO.map.cameraParams(map) : MCO.map.cameraParamsIfDefault(map));
+  }
   if (_selectedStation) params.station = _selectedStation;
   if (!kbdShortcuts) params.kbd = 'off';   // preserve the a11y opt-out across navigation
   MCO.replaceUrlState(params);
