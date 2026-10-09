@@ -7,8 +7,9 @@
 
    App-owned (deliberately NOT in the kit — MIGRATING.md § kit-deferred):
    the photo-mosaic machinery (cover-crop + LRU cache, one image source per
-   station cell), the gallery/lightbox dialogs, the date stepper, the direction
-   segments + <select> fallback, updateSocialMeta, and the branded PNG export.
+   station cell), the gallery/lightbox dialogs and the branded PNG export.
+   Since kit 0.9.0 the date stepper (MCO.initStepper) and the direction
+   segments' <select> fallback (MCO.initSegmentedFallback) are the kit's.
    ========================================================================== */
 (function () {
 'use strict';
@@ -82,14 +83,6 @@ const cssVar = (n, fallback) =>
   getComputedStyle(document.documentElement).getPropertyValue(n).trim() || fallback;
 const once = (m, ev) => new Promise((r) => m.once(ev, r));
 
-// Local-getter date shift. Deliberately NOT MCO.shiftDate: that reads its
-// result back with toISOString() (UTC), which lands a day off for viewers in
-// UTC+13/+14 and UTC−12. Kit defect reported separately.
-function shiftDate(dateStr, deltaDays) {
-  const d = new Date(dateStr + "T12:00:00");
-  d.setDate(d.getDate() + deltaDays);
-  return `${d.getFullYear()}-${MCO.pad2(d.getMonth() + 1)}-${MCO.pad2(d.getDate())}`;
-}
 
 // ── DOM refs ────────────────────────────────────────────────────────────────
 const mainEl         = document.getElementById("main");
@@ -141,6 +134,7 @@ let _refreshToken = 0;                // guards against stale async photo loads 
 let _hoveredId = null;
 let _photoState = new Map();          // station → true|false (has a photo for the current selection)
 let _lastAnnounced = '';
+let _dateSteppers = [];               // MCO.initStepper handles; refresh() after any date change (updateUrl)
 const _cropCache = new Map();         // thumb URL → cover-cropped data URL
 
 // ── URL state ─────────────────────────────────────────────────────────────────
@@ -228,7 +222,7 @@ function slotsForDate(dateStr) {
 function lastSlotBefore(dateStr) {
   let date = dateStr;
   for (let i = 0; i < SLOT_WALK_MAX_DAYS; i++) {
-    date = shiftDate(date, -1);
+    date = MCO.shiftDate(date, -1);
     if (date < PHOTOS_MIN_DATE) break;
     const slots = slotsForDate(date);
     if (slots.length) return { date, time: slots[slots.length - 1] };
@@ -314,7 +308,7 @@ function rollMessage({ from, to, reason }) {
     ? `${slotLabel(from)} isn't available yet — showing ${slotLabel(to)}.`
     : `Time adjusted to ${slotLabel(to)} — ${slotLabel(from)} isn't scheduled on ${MCO.formatDateStr(dateInput.value)}.`;
 }
-// Announce a batched time move (hold-to-repeat collects them; see stepDate).
+// Announce a batched time move (a hold-to-repeat run collects them; see stepDate).
 function flushRoll() {
   if (!_pendingRoll) return;
   if (!_exportParam) MCO.showToast(rollMessage(_pendingRoll), 5000);
@@ -1434,42 +1428,61 @@ function clampDate(wanted = _wantedTime) {
   // while wanting noon re-resolves to 3 PM every day, but says so once.
   return moved && time !== before ? { from: wanted, to: time, reason } : null;
 }
-function stepDate(delta) {
-  const newDate = shiftDate(dateInput.value, delta);
-  if (delta < 0 && dateInput.min && newDate < dateInput.min) { MCO.showToast("Already at the earliest available date."); return false; }
-  if (delta > 0 && newDate > computeMaxTimestep().date)       { MCO.showToast("Already at the most recent available date."); return false; }
-  dateInput.value = newDate;
-  _pendingRoll = clampDate() || _pendingRoll;
-  updateUrl();
-  return true;
-}
-let _holdTimer = null, _holdInterval = null;
-function startHold(delta) {
-  if (!stepDate(delta)) return;
-  _holdTimer = setTimeout(() => {
-    _holdInterval = setInterval(() => { if (!stepDate(delta)) stopHold(); }, 120);
-  }, 450);
-}
-function stopHold() {
-  if (_holdTimer === null && _holdInterval === null) return;
-  clearTimeout(_holdTimer); clearInterval(_holdInterval);
-  _holdTimer = null; _holdInterval = null;
+// Day steppers: the navbar's ▲/▼ and the landscape rail's pair, both on the
+// kit's MCO.initStepper (click and Enter/Space step once, a held pointer
+// repeats, the buttons disable at the date bounds). The kit calls onStep per
+// step; the mosaic refresh and any time-roll toast wait until stepping stops,
+// so a hold-to-repeat run paints and speaks once, at the end: on pointer
+// release for a press or hold, or after a short pause for keyboard steps
+// (key auto-repeat). A refresh mid-hold would starve the kit's repeat timer —
+// it decodes and crops ~150 photos on the main thread.
+const STEP_SETTLE_MS = 250;
+let _stepSettle = null, _stepPending = false, _pointerHeld = false;
+function settleSteps() {
+  clearTimeout(_stepSettle); _stepSettle = null;
+  if (!_stepPending) return;
+  _stepPending = false;
   flushRoll();
   refreshMapImages();
 }
-// The navbar stepper and the landscape rail's day buttons share one wiring.
-function wireDateStep(btn, delta) {
-  btn.addEventListener("mousedown",  (e) => { e.preventDefault(); startHold(delta); });
-  btn.addEventListener("touchstart", (e) => { e.preventDefault(); startHold(delta); }, { passive: false });
-  btn.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (stepDate(delta)) { flushRoll(); refreshMapImages(); } } });
+document.addEventListener('pointerdown', () => { _pointerHeld = true; }, true);
+for (const ev of ['pointerup', 'pointercancel']) {
+  document.addEventListener(ev, () => { _pointerHeld = false; settleSteps(); }, true);
 }
-wireDateStep(document.getElementById("btn-date-prev"), -1);
-wireDateStep(document.getElementById("btn-date-next"), +1);
-wireDateStep(document.getElementById("btn-rail-prev"), -1);
-wireDateStep(document.getElementById("btn-rail-next"), +1);
-document.addEventListener("mouseup", stopHold);
-document.addEventListener("touchend", stopHold);
-document.addEventListener("touchcancel", stopHold);
+function canStepDate(delta) {
+  if (!dateInput.value) return false;
+  const next = MCO.shiftDate(dateInput.value, delta);
+  return delta < 0 ? !(dateInput.min && next < dateInput.min) : next <= computeMaxTimestep().date;
+}
+function stepDate(delta) {
+  dateInput.value = MCO.shiftDate(dateInput.value, delta);
+  _pendingRoll = clampDate() || _pendingRoll;
+  updateUrl();
+  _stepPending = true;
+  clearTimeout(_stepSettle);
+  if (!_pointerHeld) _stepSettle = setTimeout(settleSteps, STEP_SETTLE_MS);
+}
+// The kit disables a stepper button at its bound, and disabling the focused
+// button drops focus to <body> (a keyboard user stepping to the newest day
+// lost their place). The kit's refresh() runs synchronously right after
+// onStep, so a microtask sees the result: hand focus to the pair's other
+// button, which is then always enabled.
+_dateSteppers = [
+  ["btn-date-prev", "btn-date-next"],
+  ["btn-rail-prev", "btn-rail-next"],
+].map(([prevId, nextId]) => {
+  const prev = document.getElementById(prevId), next = document.getElementById(nextId);
+  return MCO.initStepper({
+    prev, next, canStep: canStepDate,
+    onStep: (delta) => {
+      const had = document.activeElement;
+      stepDate(delta);
+      queueMicrotask(() => {
+        if ((had === prev || had === next) && had.disabled) (had === prev ? next : prev).focus();
+      });
+    },
+  });
+});
 
 // ── Boundaries toggle (county lines + tribal nations, together) ───────────────
 const BOUNDARY_LAYERS = ["counties-line", "tribal-fill", "tribal-line", "tribal-label"];
@@ -1630,6 +1643,7 @@ function updateUrl() {
   MCO.replaceUrlState(params);
   updateSocialMeta();
   updateRail();
+  _dateSteppers.forEach(st => st.refresh());   // bounds may have moved
 }
 
 // ── Export (PNG with MCO branding) ────────────────────────────────────────────
