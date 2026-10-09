@@ -111,8 +111,8 @@ const srTableEl      = document.getElementById("sr-photo-table");
 const _placeholderSlots = [...timeInput.options].map(o => o.value);
 
 // Screen-reader announcements for what the WebGL mosaic shows (HOUSE-STYLE
-// §5.1) — the hidden-table twin below carries the detail.
-const live = MCO.createLiveRegion();
+// §5.1) go through the kit's one page announcer, MCO.announce (polite) — the
+// hidden-table twin below carries the detail.
 
 // ── State ─────────────────────────────────────────────────────────────────────
 // Parsed schedule.json. Period bounds are epoch ms (`until` Infinity = current);
@@ -979,7 +979,7 @@ function announceMosaic() {
       `for ${formatDisplayTimestamp(getSelectedDateTime())}.`;
   if (msg === _lastAnnounced) return;
   _lastAnnounced = msg;
-  live.announce(msg);
+  MCO.announce(msg);
 }
 
 // ── Hover + click interaction ─────────────────────────────────────────────────
@@ -1262,7 +1262,7 @@ function openModalByStation(stationId, opener) {
   _galleryOpener = opener || document.activeElement;
   modal.showModal();
   document.getElementById("modal-close").focus();
-  live.announce(n
+  MCO.announce(n
     ? `Photo gallery for ${f.name} opened, ${n} photos.`
     : `Photo gallery for ${f.name} opened, no photos for this date.`);
 }
@@ -1271,7 +1271,7 @@ function stepGalleryStation(delta) {
   const r = stepIn(galleryStations(getSelectedDateTime()), _selectedStation, delta);
   if (!r) return;
   const n = renderGallery(r.id);
-  live.announce(`Photo gallery for ${_featureByStation.get(r.id).name}, ${n} photos.${stepNote(r)}`);
+  MCO.announce(`Photo gallery for ${_featureByStation.get(r.id).name}, ${n} photos.${stepNote(r)}`);
 }
 // One close path for the button, Esc and backdrop click alike.
 // The map deliberately never moves for a station step, not even on close —
@@ -1318,7 +1318,7 @@ function stepLightboxStation(delta) {
   _selectedStation = r.id;
   _galleryStale    = true;
   updateUrl();
-  live.announce(`${caption}.${stepNote(r)}`);
+  MCO.announce(`${caption}.${stepNote(r)}`);
 }
 lightbox.addEventListener("close", () => {
   lightboxImg.src = BLANK_IMG;   // not "" — that re-requests the page itself
