@@ -163,12 +163,6 @@
     }
     input[type="date"]:hover, select.time-select:hover { background: var(--accent-hover); border-color: var(--accent-line); }
     input[type="date"]:focus, select.time-select:focus { border-color: var(--accent-line); background: var(--accent-hover); }
-    /* WebKit focuses a date input's month/day/year sub-fields and never
-       matches :focus-visible on the input itself, so keyboard users got no
-       ring (keyboard.mjs, WebKit ⌥Tab). A date field is text entry, where
-       Chromium shows the ring on any focus anyway: give it the kit's
-       universal ring on :focus. */
-    input[type="date"]:focus { outline: 2px solid var(--accent-line); outline-offset: 2px; }
 
     /* Date stepper: ▲/▼ stacked beside the date input (next above previous). */
     .date-stepper { display: flex; align-items: center; gap: 4px; }
