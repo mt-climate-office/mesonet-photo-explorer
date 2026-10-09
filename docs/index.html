@@ -160,6 +160,12 @@
     }
     input[type="date"]:hover, select.time-select:hover { background: var(--accent-hover); border-color: var(--accent-line); }
     input[type="date"]:focus, select.time-select:focus { border-color: var(--accent-line); background: var(--accent-hover); }
+    /* WebKit focuses a date input's month/day/year sub-fields and never
+       matches :focus-visible on the input itself, so keyboard users got no
+       ring (keyboard.mjs, WebKit ⌥Tab). A date field is text entry, where
+       Chromium shows the ring on any focus anyway: give it the kit's
+       universal ring on :focus. */
+    input[type="date"]:focus { outline: 2px solid var(--accent-line); outline-offset: 2px; }
 
     /* Date stepper: ▲/▼ stacked beside the date input (next above previous). */
     .date-stepper { display: flex; align-items: center; gap: 4px; }
@@ -435,6 +441,11 @@
       input[type="date"], select.time-select { height: 40px; line-height: 40px; }
       #search-dropdown li { min-height: 40px; padding: 10px 8px; }
       .lightbox-close { min-width: 44px; min-height: 44px; }
+      /* The gallery's close button is a close control, so 44px (HOUSE-STYLE
+         §5.5), not the 40px of its sibling arrows; and the dashboard link is a
+         standalone button-like link, not an inline one. */
+      .modal-header-actions #modal-close { min-width: 44px; min-height: 44px; }
+      .modal-dash-link a { min-height: 44px; display: inline-flex; align-items: center; }
       /* Two stacked 15px buttons are untappable — lay the stepper out as a
          pair of 40px targets (previous left, next right) instead. */
       .date-step-btns { flex-direction: row; gap: 4px; }
