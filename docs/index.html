@@ -184,53 +184,18 @@
        wrapper with its label follows the attribute. Keyed on the attribute,
        not on a media query of its own, so the kit flips both in one tick and
        can move focus across — a CSS-only hide blurs the focused segment first
-       (Chromium), which strands focus on <body>. */
+       (Chromium), which strands focus on the document body. */
     #dir-group:has(> #dir-btns[hidden]),
     .dir-select-group:has(> #dir-select[hidden]) { display: none; }
 
-    /* ── Search combobox (app-local: kit-deferred component) ───────────────── */
-    .search-wrap { position: relative; display: inline-flex; align-items: center; }
-    input[type="search"] {
-      /* Solid bg (not rgba) so it can't be visually replaced by Chrome's
-         autofill mask. */
-      background-color: var(--input-bg);
-      color: var(--text-primary);
-      border: 1px solid var(--ctrl-border); border-radius: var(--radius-md);
-      padding: 0 12px 0 30px; height: 34px;
-      width: 200px; max-width: 100%;
-      font-size: 0.82rem; font-family: inherit;
-      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237a8190' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='7'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>");
-      background-repeat: no-repeat; background-position: 8px center; background-size: 14px 14px;
-      transition: var(--transition), width 0.18s ease-out;
-    }
-    input[type="search"]:hover { border-color: var(--accent-line); }
-    /* No outline:none here — the kit's universal :focus-visible ring stays. */
-    input[type="search"]:focus { border-color: var(--accent-line); width: 240px; }
-    input[type="search"]::-webkit-search-cancel-button { filter: var(--ctrl-icon-filter, none); }
-    input[type="search"]::placeholder { color: var(--text-muted); opacity: 1; }
-
-    /* Custom suggestions listbox — replaces the native <datalist> popup, which
-       is unstylable Chrome UI. */
-    #search-dropdown {
-      position: absolute; top: calc(100% + 4px); left: 0; right: 0; min-width: 100%;
-      background: var(--bg-surface); border: 1px solid var(--border);
-      border-radius: var(--radius-md); box-shadow: var(--shadow);
-      list-style: none; margin: 0; padding: 4px;
-      max-height: 280px; overflow-y: auto; z-index: var(--z-flyout);
-    }
-    #search-dropdown li {
-      display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
-      padding: 5px 8px; font-size: 0.8rem; cursor: pointer;
-      border-radius: var(--radius-sm); color: var(--text-secondary);
-      white-space: nowrap; overflow: hidden;
-    }
-    #search-dropdown li:hover, #search-dropdown li.active { background: var(--accent-hover); color: var(--text-primary); }
-    #search-dropdown li.empty { color: var(--text-muted); font-style: italic; cursor: default; }
-    #search-dropdown li.empty:hover { background: none; }
-    #search-dropdown .search-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-    /* --text-secondary, not --text-muted: keeps AA headroom over the
-       accent-tinted hover background. */
-    #search-dropdown .search-meta { flex-shrink: 0; font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-secondary); }
+    /* ── Search (kit: .mco-search + MCO.initSearchBox, 0.8.0) ───────────────
+       Field, icon and listbox are the kit's. App-owned: the "/" hint, the
+       cancel-glyph filter, and one tagged width. */
+    /* kit-override: 200px, not the kit's 220px — this bar is control-dense
+       (search + date stepper + time + up to seven direction segments + five
+       buttons) and already runs out of room just above the 1060px shed. */
+    .mco-search .mco-search-input { width: 200px; padding-right: 30px; }
+    #search-input::-webkit-search-cancel-button { filter: var(--ctrl-icon-filter, none); }
     .search-kbd {
       position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
       font: 600 0.62rem var(--font-mono);
@@ -239,7 +204,7 @@
       pointer-events: none; transition: opacity 0.15s;
     }
     /* Hide the / hint once the user has focused the search (or while typing). */
-    .search-wrap:focus-within .search-kbd { opacity: 0; }
+    #search-wrap:focus-within .search-kbd { opacity: 0; }
 
     /* ── Photo gallery dialog (app-local) ──────────────────────────────────── */
     .modal-box {
@@ -347,10 +312,6 @@
        #btn-search-toggle rule — an ID selector outbids the kit's class and would
        strand the toggle hidden. */
 
-    @media (max-width: 640px) {
-      input[type="search"] { width: 150px; }
-      input[type="search"]:focus { width: 180px; }
-    }
     /* ── RAIL MODE (app-local prototype) ───────────────────────────────────
        Landscape phones: the navbar becomes a narrow left rail and everything
        else moves into a slide-out drawer, so the map gets the full height —
@@ -427,9 +388,10 @@
       .nav-drawer .date-step-btns { flex-direction: row; gap: 4px; }
       .nav-drawer .time-select { width: 100%; }
       .mco-navbar .nav-drawer .mco-search-collapse { display: flex; }
-      .nav-drawer input[type="search"],
-      .nav-drawer input[type="search"]:focus { width: 100%; }
-      .nav-drawer #search-dropdown { max-height: 50dvh; }
+      /* kit-override: in the rail drawer (app-local prototype) the field
+         fills the drawer and its list stays inside the short viewport. */
+      .nav-drawer .mco-search .mco-search-input { width: 100%; }
+      .nav-drawer .mco-search-list { max-height: 50dvh; }
       .nav-drawer .search-kbd { display: none; }
       .nav-drawer .nav-meta {
         order: 1; margin-left: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;
@@ -445,12 +407,10 @@
 
     /* WCAG 2.5.5 — touch targets for app-owned controls (kit covers its own). */
     @media (hover: none) {
-      input[type="search"] { min-height: 40px; }
       /* `height`, not `min-height`: WebKit ignores min-height on a native
          select (kit MIGRATING.md § Gotchas). The date input, the Time menu
          and the narrow-screen direction select. */
       input[type="date"], select.time-select { height: 40px; line-height: 40px; }
-      #search-dropdown li { min-height: 40px; padding: 10px 8px; }
       .lightbox-close { min-width: 44px; min-height: 44px; }
       /* The gallery's close button is a close control, so 44px (HOUSE-STYLE
          §5.5), not the 40px of its sibling arrows; and the dashboard link is a
@@ -518,19 +478,14 @@
   </div>
 
   <div class="controls">
-    <!-- Search a station. Press / anywhere to jump here. Custom listbox
-         dropdown (not <datalist>) so the popup is fully themed. -->
-    <div class="search-wrap mco-search-collapse" id="search-wrap">
+    <!-- Search a station (kit .mco-search + MCO.initSearchBox, which wires the
+         combobox/listbox roles and aria-*). Press / anywhere to jump here. -->
+    <div class="mco-search mco-search-collapse" id="search-wrap">
+      <span class="mco-search-icon" aria-hidden="true"></span>
       <label for="search-input" class="sr-only">Search stations</label>
-      <input type="search" id="search-input"
-             role="combobox" aria-autocomplete="list" aria-haspopup="listbox"
-             aria-controls="search-dropdown" aria-expanded="false"
-             placeholder="Search stations…" autocomplete="off">
+      <input type="search" id="search-input" class="mco-search-input" placeholder="Search stations…">
       <kbd class="search-kbd" aria-hidden="true">/</kbd>
-      <!-- Deliberate WAI-ARIA combobox: native <select>/<datalist> popups are
-           unstylable Chrome UI and can't be themed. -->
-      <!-- [html-validate-disable-next prefer-native-element] -->
-      <ul id="search-dropdown" role="listbox" hidden></ul>
+      <div class="mco-search-list" id="search-dropdown" hidden></div>
     </div>
 
     <div class="control-group">

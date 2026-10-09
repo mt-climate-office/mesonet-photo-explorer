@@ -1026,86 +1026,38 @@ function showTooltip(ev, text) {
 function hideTooltip() { tooltipEl.classList.remove("visible"); }
 
 // ── Search ────────────────────────────────────────────────────────────────────
-// App-local by design: the kit has deliberately not absorbed the search
-// combobox yet (MIGRATING.md § kit-deferred). The collapse-to-icon behavior
-// below is likewise app-local — a kit candidate if a second property wants it
-// (admission rule: >= 2 MCO properties).
-let _activeSearchIndex = -1;
-
-// Collapse-to-icon + overlay is the kit's component as of v0.5.0, collapsing at
-// the compact edge (≤640px) since v0.6.0. (This app
-// prototyped it; mesonet-status became the second consumer, meeting the kit's
-// admission rule). The kit owns the mechanics — open/close, focus in and out,
-// outside-dismiss, and clearing state when the viewport widens. This app keeps
-// what only it knows: Esc precedence against its own suggestions dropdown, the
-// `/` shortcut, and which control the gallery should treat as its opener.
+// The combobox is the kit's MCO.initSearchBox (0.8.0): APG keyboard model,
+// accent- and typo-tolerant ranking (MCO.searchModel), a disabled "No
+// matches" option, polite result counts, and Esc that closes, then clears.
+// The collapse-to-icon + overlay at ≤640px is the kit's MCO.initSearchCollapse
+// (this app prototyped it). This app keeps what only it knows: the `/`
+// shortcut, Esc closing the overlay once the field is empty, and which control
+// the gallery should treat as its opener.
 const btnSearchToggle = document.getElementById('btn-search-toggle');
+const searchBox = MCO.initSearchBox({
+  input: searchInput,
+  listbox: searchDropdown,
+  items: () => _stationsList.map(s => ({ id: s.station, label: s.name })),
+  onSelect: selectStation,
+  label: 'Stations',
+  limit: SEARCH_MAX_RESULTS,
+});
 const searchCollapse = MCO.initSearchCollapse({
   wrap: document.getElementById('search-wrap'),
   toggle: btnSearchToggle,
   input: searchInput,
-  onClose: hideSearchDropdown,
+  onClose: () => searchBox.close(),
+});
+// The kit handles (and stops) the Esc that closes the list or clears the
+// text; the one it passes through closes the overlay, one step at a time.
+searchInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !e.defaultPrevented && searchCollapse.isOpen()) {
+    e.preventDefault();
+    searchCollapse.close();
+  }
 });
 
-function matchScore(s, q) {
-  const n = s.name.toLowerCase(), id = s.station.toLowerCase();
-  if (n === q || id === q) return 0;
-  if (n.startsWith(q))     return 1;
-  if (id.startsWith(q))    return 2;
-  if (n.includes(q))       return 3;
-  if (id.includes(q))      return 4;
-  return Infinity;
-}
-function showSearchDropdown(rawQuery) {
-  const q = rawQuery.trim().toLowerCase();
-  if (!q) { hideSearchDropdown(); return; }
-  const matches = _stationsList
-    .map(s => ({ s, score: matchScore(s, q) }))
-    .filter(m => m.score < Infinity)
-    .sort((a, b) => a.score - b.score || a.s.name.localeCompare(b.s.name))
-    .slice(0, SEARCH_MAX_RESULTS)
-    .map(m => m.s);
-  searchDropdown.innerHTML = '';
-  if (matches.length === 0) {
-    const li = document.createElement('li');
-    li.className = 'empty';
-    li.setAttribute('aria-disabled', 'true');
-    li.textContent = `No stations match "${rawQuery.trim()}"`;
-    searchDropdown.appendChild(li);
-    searchDropdown.hidden = false;
-    searchInput.setAttribute('aria-expanded', 'true');
-    _activeSearchIndex = -1;
-    return;
-  }
-  for (const s of matches) {
-    const li = document.createElement('li');
-    li.setAttribute('role', 'option');
-    li.dataset.stationId = s.station;
-    li.id = `search-opt-${s.station}`;
-    const name = document.createElement('span');
-    name.className = 'search-name';
-    name.textContent = s.name;
-    const meta = document.createElement('span');
-    meta.className = 'search-meta';
-    meta.textContent = s.station;
-    li.append(name, meta);
-    li.addEventListener('mousedown', (e) => { e.preventDefault(); selectStation(s.station); });
-    searchDropdown.appendChild(li);
-  }
-  searchDropdown.hidden = false;
-  searchInput.setAttribute('aria-expanded', 'true');
-  _activeSearchIndex = -1;
-  searchInput.removeAttribute('aria-activedescendant');
-}
-function hideSearchDropdown() {
-  searchDropdown.hidden = true;
-  searchInput.setAttribute('aria-expanded', 'false');
-  _activeSearchIndex = -1;
-  searchInput.removeAttribute('aria-activedescendant');
-}
 function selectStation(stationId) {
-  hideSearchDropdown();
-  searchInput.value = '';
   // Whichever control the user came from becomes the gallery's opener, so
   // closing the dialog returns them there. In collapsed mode that's the toggle
   // — the field itself is display:none once the overlay closes, and focusing a
@@ -1118,38 +1070,6 @@ function selectStation(stationId) {
   closeDrawer({ restoreFocus: false });
   flyToAndOpen(stationId, opener);
 }
-function setActiveSearchItem(idx) {
-  const items = searchDropdown.querySelectorAll('li');
-  if (!items.length) return;
-  if (idx < 0) idx = items.length - 1;
-  if (idx >= items.length) idx = 0;
-  _activeSearchIndex = idx;
-  items.forEach((it, i) => it.classList.toggle('active', i === idx));
-  items[idx].scrollIntoView({ block: 'nearest' });
-  searchInput.setAttribute('aria-activedescendant', items[idx].id);
-}
-searchInput.addEventListener('input', () => showSearchDropdown(searchInput.value));
-searchInput.addEventListener('focus', () => { if (searchInput.value) showSearchDropdown(searchInput.value); });
-searchInput.addEventListener('blur',  () => setTimeout(hideSearchDropdown, 120));
-searchInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
-    // Esc closes the dropdown first, then the overlay — one step at a time.
-    if (!searchDropdown.hidden) { e.preventDefault(); searchInput.value = ''; hideSearchDropdown(); return; }
-    if (searchCollapse.isOpen()) { e.preventDefault(); searchCollapse.close(); return; }
-    searchInput.value = '';
-    return;
-  }
-  if (searchDropdown.hidden) return;
-  const items = searchDropdown.querySelectorAll('li');
-  if (!items.length) return;
-  if (e.key === 'ArrowDown') { e.preventDefault(); setActiveSearchItem(_activeSearchIndex + 1); }
-  else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveSearchItem(_activeSearchIndex - 1); }
-  else if (e.key === 'Enter') {
-    e.preventDefault();
-    const idx = _activeSearchIndex >= 0 ? _activeSearchIndex : 0;
-    if (items[idx].dataset.stationId) selectStation(items[idx].dataset.stationId);
-  }
-});
 
 function flyToAndOpen(stationId, opener) {
   const f = _featureByStation.get(stationId);
