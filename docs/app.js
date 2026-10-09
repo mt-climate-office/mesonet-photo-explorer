@@ -475,6 +475,13 @@ function initMap() {
   MCO.map.addNavigation(map);                  // top-right, no compass
   MCO.map.addFitControl(map);                  // fused into the zoom group
   zoomFloor = MCO.map.installZoomFloor(map);   // snap-back + resize refit
+  // A basemap style that 404s or hangs never fires 'load': the kit retries
+  // it, then falls back to a blank style and shows a notice with Retry.
+  MCO.map.watchBasemap(map, { styleUrl: MCO.map.cartoStyleUrl });
+  // Every style.load — a theme switch, a basemap retry, the blank fallback —
+  // wipes our sources and layers, so they are re-added each time, not once.
+  // The first one precedes the data load; onMapLoad adds them then.
+  map.on('style.load', () => { if (_mapReady) addCustomLayers(); });
   map.on('load', onMapLoad);
   map.on('moveend', () => { if (_mapReady) updateUrl(); });
   wireMapPointer();
@@ -501,8 +508,7 @@ MCO.initThemeToggle({
     // Before the library has arrived there is no map yet; initMap reads the
     // theme when it builds it.
     if (!map) { updateUrl(); return; }
-    map.setStyle(MCO.map.cartoStyleUrl());
-    map.once('style.load', () => { addCustomLayers(); });
+    map.setStyle(MCO.map.cartoStyleUrl());   // layers return on style.load (initMap)
     updateUrl();
   },
 });
@@ -791,7 +797,7 @@ function addOverlaySource(id, url, cachedFC, save) {
 }
 
 // Add all custom sources + layers. Called on first load and re-called on every
-// setStyle() (theme toggle), which wipes them. Stack, bottom → top:
+// style.load (theme toggle, basemap retry or fallback), which wipes them. Stack, bottom → top:
 // state frame → photo rasters → boundary overlays → cell borders/hit → labels.
 //
 // kit-override: no MCO.map.addHillshade here — the photo mosaic is the figure
