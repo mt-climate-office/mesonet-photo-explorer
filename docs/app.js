@@ -499,18 +499,19 @@ function onMapLibraryFail(err) {
 }
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
+// The toggle only flips the theme and mirrors it into the URL; the map
+// re-styles from the kit's mco:themechange event (0.9.0), so any future theme
+// source re-styles it too. setStyle() wipes our sources and layers; they
+// return on style.load (initMap). Before the library has arrived there is no
+// map yet, and initMap reads the theme when it builds it.
 MCO.initThemeToggle({
   button: document.getElementById('btn-theme'),
   iconSun: document.getElementById('icon-sun'),
   iconMoon: document.getElementById('icon-moon'),
-  onChange: () => {
-    // setStyle() wipes our sources/layers — re-add them once the new basemap loads.
-    // Before the library has arrived there is no map yet; initMap reads the
-    // theme when it builds it.
-    if (!map) { updateUrl(); return; }
-    map.setStyle(MCO.map.cartoStyleUrl());   // layers return on style.load (initMap)
-    updateUrl();
-  },
+  onChange: () => updateUrl(),
+});
+document.addEventListener('mco:themechange', () => {
+  if (map) map.setStyle(MCO.map.cartoStyleUrl());
 });
 
 // Walk back from the computed latest slot to the newest one that actually has
