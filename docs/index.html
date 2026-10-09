@@ -247,7 +247,7 @@
 
     /* ── Lightbox (app-local) ──────────────────────────────────────────────── */
     /* Always a near-black backdrop in every theme, so the two colors below are
-       measured against it rather than tokenised: #ccc on rgba(0,0,0,0.88) is
+       measured against it rather than tokenised (contrast): #ccc on rgba(0,0,0,0.88) is
        ~12:1 and #fff is ~19:1 (WCAG 1.4.3). */
     #lightbox { padding: 0; }
     #lightbox::backdrop { background: rgba(0,0,0,0.88); backdrop-filter: blur(6px); }
@@ -255,10 +255,10 @@
       display: block; max-width: min(1200px, calc(100vw - 2rem));
       max-height: calc(100dvh - 5rem); border-radius: 6px; object-fit: contain;
     }
-    .lightbox-caption { text-align: center; color: #ccc; font-size: 0.8rem; margin-top: 0.5rem; }
+    .lightbox-caption { text-align: center; color: #ccc; font-size: 0.8rem; margin-top: 0.5rem; } /* contrast ~12:1 on the backdrop, WCAG 1.4.3 */
     .lightbox-close {
       position: absolute; top: -2rem; right: 0; background: none; border: none;
-      color: #fff; font-size: 1.75rem; line-height: 1; cursor: pointer; padding: 0 0.25rem;
+      color: #fff; font-size: 1.75rem; line-height: 1; cursor: pointer; padding: 0 0.25rem; /* contrast ~19:1 on the backdrop */
     }
     /* Station arrows pinned to the viewport edges (fixed works inside a
        top-layer dialog). White glyph on a solid dark disc — same backdrop-only
@@ -267,7 +267,7 @@
     .lightbox-nav {
       position: fixed; top: 50%; transform: translateY(-50%);
       width: 44px; height: 44px; padding: 0; border: none; border-radius: 50%;
-      background: rgba(0,0,0,0.6); color: #fff; cursor: pointer;
+      background: rgba(0,0,0,0.6); color: #fff; cursor: pointer; /* contrast ~15:1 on the 0.6 black disc */
       display: inline-flex; align-items: center; justify-content: center;
     }
     .lightbox-nav:hover { background: rgba(0,0,0,0.85); }
