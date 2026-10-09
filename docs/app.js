@@ -1604,26 +1604,27 @@ window.addEventListener("keydown", (e) => {
 });
 
 // ── URL sync & social meta ────────────────────────────────────────────────────
+// Tab and link card per HOUSE-STYLE §1 through the kit (MCO.setPageTitle /
+// MCO.setSocialMeta): the tab stays the short name, matching the Explorer and
+// UMRB Build maps; the card gets the date as its one detail ("October 9, 2026 ·
+// Photos · Montana Mesonet"), with the time and direction in the description.
+// The card image is the bot-regenerated preview.png (preview.yml), not the
+// kit's og-card. og:url is set here rather than through setSocialMeta's `url`,
+// which would also move <link rel=canonical> off the production host.
 function updateSocialMeta() {
   const label = dirLabel(currentDir);
   const dateFmt = MCO.formatDateStr(dateInput.value);
   const timeFmt = `${slotLabel(timeInput.value)} MT`;
-  const title = `Montana Mesonet Photos · ${dateFmt} · ${timeFmt} · ${label}`;
   const desc  = `Montana weather station photos for ${dateFmt} at ${timeFmt}, ${label} direction. ` +
                 `A service of the Montana Climate Office.`;
-  // The tab keeps the short site name ("Photos · MT Mesonet"), matching
-  // the Explorer and UMRB Build maps; the dated title goes only to the social cards.
-  document.title = "Photos · MT Mesonet";
-  const previewUrl = new URL("preview.png", location.href).href;
-  const set = (sel, content) => document.querySelector(sel)?.setAttribute("content", content);
-  set('meta[property="og:title"]', title);
-  set('meta[property="og:description"]', desc);
-  set('meta[property="og:url"]', location.href);
-  set('meta[property="og:image"]', previewUrl);
-  set('meta[name="twitter:title"]', title);
-  set('meta[name="twitter:description"]', desc);
-  set('meta[name="twitter:image"]', previewUrl);
-  set('meta[name="description"]', desc);
+  MCO.setPageTitle({ short: 'Photos' });
+  MCO.setSocialMeta({
+    short: 'Photos', detail: dateFmt, description: desc,
+    image: new URL("preview.png", location.href).href, imageWidth: 2800, imageHeight: 1400,
+    imageAlt: 'Map of Montana Mesonet weather stations with station photos',
+  });
+  document.querySelector('meta[property="og:url"]')?.setAttribute("content", location.href);
+  document.querySelector('meta[name="description"]')?.setAttribute("content", desc);
 }
 // Mirror state into the query string (HOUSE-STYLE §4). Defaults are elided —
 // except date and time, which are always emitted on purpose: their "default"
