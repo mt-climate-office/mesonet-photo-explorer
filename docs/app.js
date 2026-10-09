@@ -1515,8 +1515,8 @@ window.addEventListener("keydown", (e) => {
 // UMRB Build maps; the card gets the date as its one detail ("October 9, 2026 ·
 // Photos · Montana Mesonet"), with the time and direction in the description.
 // The card image is the bot-regenerated preview.png (preview.yml), not the
-// kit's og-card. og:url is set here rather than through setSocialMeta's `url`,
-// which would also move <link rel=canonical> off the production host.
+// kit's og-card. og:url follows the shared state; the canonical link stays the
+// static production one in index.html (no `canonical` passed — kit 0.11.2).
 function updateSocialMeta() {
   const label = dirLabel(currentDir);
   const dateFmt = MCO.formatDateStr(dateInput.value);
@@ -1528,8 +1528,8 @@ function updateSocialMeta() {
     short: 'Photos', detail: dateFmt, description: desc,
     image: new URL("preview.png", location.href).href, imageWidth: 2800, imageHeight: 1400,
     imageAlt: 'Map of Montana Mesonet weather stations with station photos',
+    url: location.href,
   });
-  document.querySelector('meta[property="og:url"]')?.setAttribute("content", location.href);
   document.querySelector('meta[name="description"]')?.setAttribute("content", desc);
 }
 // Mirror state into the query string (HOUSE-STYLE §4). Defaults are elided —
