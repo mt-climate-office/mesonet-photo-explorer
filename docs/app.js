@@ -508,6 +508,10 @@ MCO.initThemeToggle({
   button: document.getElementById('btn-theme'),
   iconSun: document.getElementById('icon-sun'),
   iconMoon: document.getElementById('icon-moon'),
+  // 3-state (kit 0.10.0): dark → light → high contrast, so high contrast is
+  // reachable from the page, not only by ?theme=. The label names the next.
+  cycle: true,
+  iconContrast: document.getElementById('icon-contrast'),
   onChange: () => updateUrl(),
 });
 document.addEventListener('mco:themechange', () => {
