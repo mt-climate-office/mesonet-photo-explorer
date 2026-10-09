@@ -468,14 +468,37 @@ function tribalFillPaint() {
 }
 
 // ── Map init ──────────────────────────────────────────────────────────────────
-map = new maplibregl.Map({
-  container: 'map',
-  style: MCO.map.cartoStyleUrl(),
-  ...MCO.map.initialCamera(urlParams),
-});
-MCO.map.addNavigation(map);                        // top-right, no compass
-MCO.map.addFitControl(map);                        // fused into the zoom group
-const zoomFloor = MCO.map.installZoomFloor(map);   // snap-back + resize refit
+// MapLibre 6 is ES-modules only, so it arrives asynchronously: the kit's
+// MCO.map.loadMapLibre() imports it (SRI via the page's import map) and the
+// map is built in initMap() once it has. Everything else on the page is wired
+// at the top level and never waits on the library; the call is at the end of
+// this file. Until initMap runs, `map` is undefined, so the handlers that can
+// fire before it (theme, date/time/direction, boundaries) guard on it.
+let zoomFloor = null;
+function initMap() {
+  map = new maplibregl.Map({
+    container: 'map',
+    style: MCO.map.cartoStyleUrl(),
+    ...MCO.map.initialCamera(urlParams),
+  });
+  MCO.map.addNavigation(map);                  // top-right, no compass
+  MCO.map.addFitControl(map);                  // fused into the zoom group
+  zoomFloor = MCO.map.installZoomFloor(map);   // snap-back + resize refit
+  map.on('load', onMapLoad);
+  map.on('moveend', () => { if (_mapReady) updateUrl(); });
+  wireMapPointer();
+}
+// The library failed to import (offline, CDN down, an SRI mismatch): say so
+// rather than leaving an empty map pane, and release the first-paint hold.
+function onMapLibraryFail(err) {
+  console.error(err);
+  MCO.notice({
+    tone: 'danger', text: 'The map library failed to load.',
+    action: { label: 'Reload', onClick: () => location.reload() },
+    container: document.getElementById('map-container'), place: 'over',
+  });
+  MCO.ready();
+}
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 MCO.initThemeToggle({
@@ -484,6 +507,9 @@ MCO.initThemeToggle({
   iconMoon: document.getElementById('icon-moon'),
   onChange: () => {
     // setStyle() wipes our sources/layers — re-add them once the new basemap loads.
+    // Before the library has arrived there is no map yet; initMap reads the
+    // theme when it builds it.
+    if (!map) { updateUrl(); return; }
     map.setStyle(MCO.map.cartoStyleUrl());
     map.once('style.load', () => { addCustomLayers(); });
     updateUrl();
@@ -542,7 +568,7 @@ async function resolveInitialTimestep() {
   }
 }
 
-map.on('load', async () => {
+async function onMapLoad() {
   await loadData();
   await resolveInitialTimestep();
   addCustomLayers();
@@ -559,9 +585,11 @@ map.on('load', async () => {
   // Headless export hook (scripts/generate_preview.py drives ?export=…).
   // The 4 s delay is part of that contract — don't shorten it.
   if (_exportParam) setTimeout(() => document.getElementById('btn-export').click(), 4000);
-});
-
-map.on('moveend', () => { if (_mapReady) updateUrl(); });
+  // First meaningful state: layers added, landing slot settled, URL published
+  // (kit 0.9.0 first-paint hold; the anti-flash snippet's 3 s timeout is the
+  // backstop).
+  MCO.ready();
+}
 
 // ── Data load ─────────────────────────────────────────────────────────────────
 async function loadData() {
@@ -856,7 +884,7 @@ function loadCrop(url) {
 // the date get their outline + click target; missing individual photos hide the
 // raster but keep the (empty, still-clickable) cell.
 function refreshMapImages() {
-  if (!map.getLayer('cells-fill')) return;
+  if (!map || !map.getLayer('cells-fill')) return;
   syncDirections();
   const dt = getSelectedDateTime();
   const token = ++_refreshToken;
@@ -960,25 +988,27 @@ function clearHover() {
   if (_hoveredId !== null) { map.setFeatureState({ source: 'cells', id: _hoveredId }, { hover: false }); _hoveredId = null; }
   hideTooltip();
 }
-map.on('mousemove', (e) => {
-  const feats = map.getLayer('cells-fill') ? map.queryRenderedFeatures(e.point, { layers: ['cells-fill'] }) : [];
-  const f = feats[0] || null;
-  if (f) {
-    map.getCanvas().style.cursor = 'pointer';
-    if (_hoveredId !== null && _hoveredId !== f.id) map.setFeatureState({ source: 'cells', id: _hoveredId }, { hover: false });
-    _hoveredId = f.id;
-    map.setFeatureState({ source: 'cells', id: _hoveredId }, { hover: true });
-    showTooltip(e.originalEvent, f.properties.name);
-  } else if (_hoveredId !== null) {
-    clearHover();
-  }
-});
-map.getCanvas().addEventListener('mouseleave', clearHover);
+function wireMapPointer() {
+  map.on('mousemove', (e) => {
+    const feats = map.getLayer('cells-fill') ? map.queryRenderedFeatures(e.point, { layers: ['cells-fill'] }) : [];
+    const f = feats[0] || null;
+    if (f) {
+      map.getCanvas().style.cursor = 'pointer';
+      if (_hoveredId !== null && _hoveredId !== f.id) map.setFeatureState({ source: 'cells', id: _hoveredId }, { hover: false });
+      _hoveredId = f.id;
+      map.setFeatureState({ source: 'cells', id: _hoveredId }, { hover: true });
+      showTooltip(e.originalEvent, f.properties.name);
+    } else if (_hoveredId !== null) {
+      clearHover();
+    }
+  });
+  map.getCanvas().addEventListener('mouseleave', clearHover);
 
-map.on('click', (e) => {
-  const feats = map.getLayer('cells-fill') ? map.queryRenderedFeatures(e.point, { layers: ['cells-fill'] }) : [];
-  if (feats.length) openModalByStation(feats[0].properties.station);
-});
+  map.on('click', (e) => {
+    const feats = map.getLayer('cells-fill') ? map.queryRenderedFeatures(e.point, { layers: ['cells-fill'] }) : [];
+    if (feats.length) openModalByStation(feats[0].properties.station);
+  });
+}
 
 function showTooltip(ev, text) {
   tooltipEl.textContent = text;
@@ -1440,7 +1470,7 @@ btnCounties.addEventListener("click", () => {
   MCO.lsSet(LS_COUNTIES, showCounties ? "1" : "0");
   const vis = showCounties ? "visible" : "none";
   for (const lid of BOUNDARY_LAYERS) {
-    if (map.getLayer(lid)) map.setLayoutProperty(lid, "visibility", vis);
+    if (map && map.getLayer(lid)) map.setLayoutProperty(lid, "visibility", vis);
   }
   updateUrl();
 });
@@ -1614,7 +1644,9 @@ async function exportPNG() {
     fitBoundsOptions: MCO.map.FIT_OPTS,
     interactive: false,
     attributionControl: false,
-    preserveDrawingBuffer: true,   // required for getCanvas() readback
+    // Required for getCanvas() readback. MapLibre 5+ reads it from
+    // canvasContextAttributes; the old top-level option is ignored.
+    canvasContextAttributes: { preserveDrawingBuffer: true },
     pixelRatio: EXPORT_SCALE,      // render at 2× for a high-resolution PNG
     fadeDuration: 0,
   });
@@ -1762,4 +1794,8 @@ async function drawBranding(ctx, W, H) {
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
 }
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+// Last, so every control above is wired before the map exists.
+MCO.map.loadMapLibre().then(initMap, onMapLibraryFail);
 })();

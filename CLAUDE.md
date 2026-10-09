@@ -6,7 +6,7 @@ The Montana Mesonet Photo Explorer: a static MapLibre single-page app in `docs/`
 ## House style
 
 This app consumes mco-web-style (pinned + SRI in `docs/index.html`; currently
-**v0.7.1** — check the tag in that file rather than trusting this line). Design tokens, a11y mandates, and interaction conventions: see
+**v0.11.2**, with MapLibre GL **6.11.2** — check the tag in that file rather than trusting this line). Design tokens, a11y mandates, and interaction conventions: see
 HOUSE-STYLE.md in https://github.com/mt-climate-office/mco-web-style — tokens
 only (no raw hexes), `--accent` is fill-only, `aria-pressed` drives toggle
 styling, canvas data needs a live region + sr-only table twin. To change shared
@@ -120,9 +120,24 @@ in production. Run it locally against your changes first.
 
 There is no CI for the page. Before any push, run the manual gates from
 mco-web-style `MIGRATING.md` § "Verification recipe": `node --check docs/app.js`,
-`npx html-validate@9 docs/index.html`, and the app's `consumer-verify.mjs`
-harness (untracked; install `playwright` + `@axe-core/playwright` with
-`--no-save`). Gotchas that have cost time here:
+`npx html-validate@9 docs/index.html`, and the kit's `tools/verify/` harness
+against this repo's committed `verify.config.mjs`, in Chromium AND WebKit, from
+a kit checkout beside this one:
+
+    node tools/verify/head.mjs       --root ../mesonet-photo-explorer --page docs/index.html
+    node tools/verify/axe-matrix.mjs --config ../mesonet-photo-explorer/verify.config.mjs --root ../mesonet-photo-explorer
+    node tools/verify/keyboard.mjs   --config ../mesonet-photo-explorer/verify.config.mjs --root ../mesonet-photo-explorer
+
+(The older untracked `consumer-verify.mjs` still works for its extra probes.)
+Gotchas that have cost time here:
+- MapLibre 6 is ES-modules only: `MCO.map.loadMapLibre()` imports it and the
+  one-line import map in `<head>` carries its SRI. The import map's CSP hash is
+  the kit's published one and holds only while it is copied byte for byte;
+  `worker-src` needs **both** `blob:` and `https://unpkg.com` or the basemap
+  draws and nothing else does. The map is built in `initMap()`, after the
+  library arrives; handlers that can run before it guard on `map`.
+- The anti-flash script's sha256 in the CSP is this page's own: recompute it
+  (MIGRATING.md § Gotchas, python recipe) after any change to that script.
 - The harness's `renderEvidence` must be a **function**, not a string — a string
   predicate is `eval`'d in-page and the CSP has no `'unsafe-eval'`.
 - (Resolved by kit 0.7.0.) axe's color-contrast rule used to fetch the

@@ -2,21 +2,29 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <!-- CSP (meta form — GitHub Pages can't set headers). The sha256 pins the
-       inline anti-flash script below; recompute it if that script changes
-       (mco-web-style README § CSP). No s3.amazonaws.com: this map deliberately
-       runs without hillshade.
+  <!-- CSP (meta form — GitHub Pages can't set headers). script-src carries two
+       sha256s: the inline anti-flash script below (recompute it if that script
+       changes — mco-web-style MIGRATING.md § Gotchas, python recipe) and the
+       one-line MapLibre import map (the kit's published hash; it holds only
+       while the map is copied byte for byte). No s3.amazonaws.com: this map
+       deliberately runs without hillshade.
+       `worker-src blob: https://unpkg.com` — BOTH: MapLibre 6 starts its worker
+       from a blob: URL that then imports the worker chunk from unpkg, and a
+       module worker's imports are checked against worker-src. With blob:
+       alone the basemap draws and nothing else does.
        `connect-src data:` is required, not incidental: MapLibre loads an
        `image` source's url through fetch(), and every photo in the mosaic is a
        cover-cropped canvas data URL. Without it the whole mosaic silently
-       fails to paint. -->
+       fails to paint.
+       img-src https://cdn.jsdelivr.net: the favicons are hot-linked from the
+       pinned kit tag. -->
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'none';
-    script-src 'self' 'sha256-o+rXj9Jy2CUuPoewBVeBz2GYT71qiUGzjc3SklYSaSw=' https://unpkg.com https://cdn.jsdelivr.net;
-    worker-src blob:;
+    script-src 'self' 'sha256-v3il6Uh82ESNrvf3ERc536SXE1pi2Le5vlV0TpFWJyU=' 'sha256-NgHBdw+Nl6S2kTHNyvv5uFwHfytmfDJR39Y9qVPt/UI=' https://unpkg.com https://cdn.jsdelivr.net;
+    worker-src blob: https://unpkg.com;
     style-src 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net;
     font-src https://cdn.jsdelivr.net;
-    img-src 'self' data: blob: https://data2.climate.umt.edu;
+    img-src 'self' data: blob: https://data2.climate.umt.edu https://cdn.jsdelivr.net;
     connect-src 'self' data: https://mesonet2.climate.umt.edu https://data2.climate.umt.edu https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com;
     base-uri 'none';
     form-action 'none'">
@@ -29,14 +37,21 @@
   <meta name="theme-color" content="#1a6faf" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#161b22" media="(prefers-color-scheme: dark)">
 
-  <!-- Favicons / app icons -->
-  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
-  <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
-  <link rel="icon" type="image/png" sizes="512x512" href="assets/icon-512.png">
+  <!-- Favicons / app icons: hot-linked from the pinned kit tag (kit 0.9.0+,
+       decided 2026-10-08) so they version with the kit and can't drift. The
+       navbar logo stays vendored (assets/mco-logo.png). -->
+  <link rel="icon" type="image/png" sizes="32x32" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/assets/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/assets/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/assets/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/assets/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/assets/icon-512.png">
 
-  <!-- Open Graph / social sharing -->
+  <!-- Open Graph / social sharing. Canonical on the production host (the
+       Pages origin is only the reverse proxy's upstream). The card image is
+       deliberately NOT the kit's og-card.png: .github/workflows/preview.yml
+       regenerates docs/preview.png daily from the live mosaic
+       (scripts/generate_preview.py), so the card shows real photos. -->
+  <link rel="canonical" href="https://mesonet.climate.umt.edu/photos/">
   <meta property="og:type"        content="website">
   <meta property="og:site_name"   content="Montana Mesonet">
   <meta property="og:title"       content="Photos · Montana Mesonet">
@@ -69,21 +84,37 @@
       root.setAttribute('data-theme', t);
       root.classList.toggle('is-compact', window.matchMedia('(max-width: 640px), (max-height: 560px)').matches);
       root.classList.toggle('is-touch', window.matchMedia('(hover: none)').matches);
+      // First-paint hold (0.9.0): [data-hold] stays invisible until MCO.ready();
+      // this timeout releases it anyway, so a failed script never strands a page.
+      root.classList.add('mco-booting');
+      setTimeout(function () { root.classList.remove('mco-booting'); }, 3000);
     })();
   </script>
 
-  <!-- House fonts: kit-hosted (mco-web-style 0.7.0), declared in mco-theme.css.
+  <!-- House fonts: kit-hosted (mco-web-style 0.7.0+), declared in mco-theme.css.
        Preloaded so the first frame is already in Outfit — no system-font flash.
        Same @version as the theme CSS; crossorigin is required on font preloads. -->
-  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.1/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.1/fonts/space-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.18.0/dist/maplibre-gl.css"
-        integrity="sha384-q7EDwLXBfakVimqzBJqFCTxpgy7B18buhebV158qkVMCEVAaUnU3fQTEfWgYz+7g"
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/fonts/space-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <!-- MapLibre GL 6.x (mco-web-style snippets/head.html). ES modules only:
+       mco-map.js imports it (MCO.map.loadMapLibre), and this import map carries
+       the SRI hashes for the entry and its shared chunk. Keep it ONE LINE, byte
+       for byte — its CSP sha256 depends on it. The modulepreloads start the
+       ~1.1 MB download now rather than when the kit scripts at the end run. -->
+  <script type="importmap">{"integrity":{"https://unpkg.com/maplibre-gl@6.11.2/dist/maplibre-gl.mjs":"sha384-KQzExYlfg1SnYNpLaXHTnaCTjr5wmiZ6X3sasvPb94caZfH+3+T1Sl4eJziXUtmN","https://unpkg.com/maplibre-gl@6.11.2/dist/maplibre-gl-shared.mjs":"sha384-V59ofCEPEqpSk5Mswc19DtDYbZWJtne210dFzS328Il6O31eLwTV7v57+Z3NjW/7"}}</script>
+  <link rel="modulepreload" href="https://unpkg.com/maplibre-gl@6.11.2/dist/maplibre-gl.mjs"
+        integrity="sha384-KQzExYlfg1SnYNpLaXHTnaCTjr5wmiZ6X3sasvPb94caZfH+3+T1Sl4eJziXUtmN"
+        crossorigin="anonymous">
+  <link rel="modulepreload" href="https://unpkg.com/maplibre-gl@6.11.2/dist/maplibre-gl-shared.mjs"
+        integrity="sha384-V59ofCEPEqpSk5Mswc19DtDYbZWJtne210dFzS328Il6O31eLwTV7v57+Z3NjW/7"
+        crossorigin="anonymous">
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.11.2/dist/maplibre-gl.css"
+        integrity="sha384-ntw3zEt6rcVML7jDK0ULmHa5hxLB23afsPqzqfY+gLgMfAkbFCnCgPpkZvV5mmZX"
         crossorigin="anonymous">
   <!-- mco-web-style: tokens (3 themes), a11y utilities, navbar/toast/tooltip/
        modal shells, MapLibre polish. Pinned + SRI per house policy. -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.1/theme/mco-theme.css"
-        integrity="sha384-dktZyfU+lLz1JEFe+npkBVrH8FsSdtYYOPC7bJQtZwEJnvD3IiENV+UUgyXeFpnl"
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/theme/mco-theme.css"
+        integrity="sha384-22H/4uZb4dmkrTZlLp4NJ4J+Wg39RNRIVIKO0x1HPYfyUWj81FA0fyM/uoRqbqme"
         crossorigin="anonymous">
 
   <style>
@@ -129,6 +160,12 @@
     }
     input[type="date"]:hover, select.time-select:hover { background: var(--accent-hover); border-color: var(--accent-line); }
     input[type="date"]:focus, select.time-select:focus { border-color: var(--accent-line); background: var(--accent-hover); }
+    /* WebKit focuses a date input's month/day/year sub-fields and never
+       matches :focus-visible on the input itself, so keyboard users got no
+       ring (keyboard.mjs, WebKit ⌥Tab). A date field is text entry, where
+       Chromium shows the ring on any focus anyway: give it the kit's
+       universal ring on :focus. */
+    input[type="date"]:focus { outline: 2px solid var(--accent-line); outline-offset: 2px; }
 
     /* Date stepper: ▲/▼ stacked beside the date input (next above previous). */
     .date-stepper { display: flex; align-items: center; gap: 4px; }
@@ -270,9 +307,12 @@
 
     /* ── Responsive ────────────────────────────────────────────────────────── */
     /* Breakpoints 1400 (labels) / 1060 (chrome) / 750 (subtitle) come from the
-       kit. Below 1060 the segmented direction group doesn't fit — swap in the
-       <select>. */
-    @media (max-width: 1060px) {
+       kit. The segmented direction group swaps to its <select> at the 1400
+       label edge, not 1060: kit 0.10.0's larger lockup (12/11px, ~212px wide
+       vs ~169) pushed the one-row bar off the right edge between 1061 and
+       ~1150px, and at 1061-1400 on pre-2026-09-29 dates with all seven
+       directions (verified Chromium + WebKit). */
+    @media (max-width: 1400px) {
       #dir-group        { display: none; }
       .dir-select-group { display: flex; }
     }
@@ -280,8 +320,12 @@
        five buttons don't fit on one row until ~1000px even with the brand
        collapsed, so wrapping is allowed below 1060 (where the kit also tightens
        chrome and the direction group becomes a <select>). */
+    /* Above 1060 the controls stay one row, but the bar itself may wrap: on
+       pre-2026-09-29 dates (seven direction segments) at 1401-~1480px, where
+       the 1400 label shed hasn't started, the kit 0.10.0 lockup leaves the
+       row ~50-75px too wide, and wrapping drops the action buttons to a
+       second row instead of pushing them off-screen (WCAG 1.4.10). */
     @media (min-width: 1061px) {
-      .mco-navbar { flex-wrap: nowrap; }
       .controls   { flex-wrap: nowrap; }
     }
     /* Once wrapping starts, give the controls their own full-width row and lift
@@ -398,8 +442,17 @@
     /* WCAG 2.5.5 — touch targets for app-owned controls (kit covers its own). */
     @media (hover: none) {
       input[type="search"] { min-height: 40px; }
+      /* `height`, not `min-height`: WebKit ignores min-height on a native
+         select (kit MIGRATING.md § Gotchas). The date input, the Time menu
+         and the narrow-screen direction select. */
+      input[type="date"], select.time-select { height: 40px; line-height: 40px; }
       #search-dropdown li { min-height: 40px; padding: 10px 8px; }
       .lightbox-close { min-width: 44px; min-height: 44px; }
+      /* The gallery's close button is a close control, so 44px (HOUSE-STYLE
+         §5.5), not the 40px of its sibling arrows; and the dashboard link is a
+         standalone button-like link, not an inline one. */
+      .modal-header-actions #modal-close { min-width: 44px; min-height: 44px; }
+      .modal-dash-link a { min-height: 44px; display: inline-flex; align-items: center; }
       /* Two stacked 15px buttons are untappable — lay the stepper out as a
          pair of 40px targets (previous left, next right) instead. */
       .date-step-btns { flex-direction: row; gap: 4px; }
@@ -708,16 +761,13 @@
   <div class="lightbox-caption" id="lightbox-caption"></div>
 </dialog>
 
-<!-- MapLibre -->
-<script src="https://unpkg.com/maplibre-gl@5.18.0/dist/maplibre-gl.js"
-        integrity="sha384-MYTfGytf3SxNyO7ZAu/U0wHCcs3NpqE92Q3wBz5PQhat8kEA/wbwb9qY6H/JLyuR"
+<!-- mco-web-style (window.MCO / MCO.map). MapLibre has no script tag any
+     more: mco-map.js imports it on demand (MCO.map.loadMapLibre). -->
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/core/mco-core.js"
+        integrity="sha384-b4r3+tK/yiZ4TNEllSsbDX3qW0NhcHDsF2iPzUWunUc2vNf1qlq9t9qo2YWgoZiK"
         crossorigin="anonymous"></script>
-<!-- mco-web-style (window.MCO / MCO.map) -->
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.1/core/mco-core.js"
-        integrity="sha384-ZOGCREEJsO8sY1wJ7eS/Q7K7NdZAHF+LxSMoO3ZGqBtEVISX3616cGomCW418hXH"
-        crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.1/map/mco-map.js"
-        integrity="sha384-0aF67+MSXmcocGs8r3qiehgDNzgXo9F48olS5OX575wO2llw2cuGcqLpd6+L7D76"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/map/mco-map.js"
+        integrity="sha384-tmDqtqi4yYiDHOxkZikwzXF3Lpkb63b0Tu6K7jeCpU9gJkPB2GbpFHLasGHka6zP"
         crossorigin="anonymous"></script>
 <script src="app.js"></script>
 </body>
