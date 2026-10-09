@@ -37,14 +37,14 @@
   <meta name="theme-color" content="#1a6faf" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#161b22" media="(prefers-color-scheme: dark)">
 
-  <!-- Favicons / app icons: hot-linked from the pinned kit tag (kit 0.9.0,
+  <!-- Favicons / app icons: hot-linked from the pinned kit tag (kit 0.9.0+,
        decided 2026-10-08) so they version with the kit and can't drift. The
        navbar logo stays vendored (assets/mco-logo.png). -->
-  <link rel="icon" type="image/png" sizes="32x32" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.9.0/assets/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.9.0/assets/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.9.0/assets/apple-touch-icon.png">
-  <link rel="icon" type="image/png" sizes="192x192" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.9.0/assets/icon-192.png">
-  <link rel="icon" type="image/png" sizes="512x512" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.9.0/assets/icon-512.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.10.0/assets/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.10.0/assets/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.10.0/assets/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.10.0/assets/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.10.0/assets/icon-512.png">
 
   <!-- Open Graph / social sharing. Canonical on the production host (the
        Pages origin is only the reverse proxy's upstream). The card image is
@@ -94,8 +94,8 @@
   <!-- House fonts: kit-hosted (mco-web-style 0.7.0+), declared in mco-theme.css.
        Preloaded so the first frame is already in Outfit — no system-font flash.
        Same @version as the theme CSS; crossorigin is required on font preloads. -->
-  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.9.0/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.9.0/fonts/space-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.10.0/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.10.0/fonts/space-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
   <!-- MapLibre GL 6.x (mco-web-style snippets/head.html). ES modules only:
        mco-map.js imports it (MCO.map.loadMapLibre), and this import map carries
        the SRI hashes for the entry and its shared chunk. Keep it ONE LINE, byte
@@ -113,8 +113,8 @@
         crossorigin="anonymous">
   <!-- mco-web-style: tokens (3 themes), a11y utilities, navbar/toast/tooltip/
        modal shells, MapLibre polish. Pinned + SRI per house policy. -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.9.0/theme/mco-theme.css"
-        integrity="sha384-qVWCeYiqMV4ZHkUNHf/Aq1VhShNzyLWBcnsYYrmUzbquyQDmm6gIIUoFHYBJG9xo"
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.10.0/theme/mco-theme.css"
+        integrity="sha384-wZCY6EP4EQ0SDjkqDvQkAFd9f5tUJCATMjCvcs18/I19mKfE6nxqsQiUURF8nRKx"
         crossorigin="anonymous">
 
   <style>
@@ -307,9 +307,12 @@
 
     /* ── Responsive ────────────────────────────────────────────────────────── */
     /* Breakpoints 1400 (labels) / 1060 (chrome) / 750 (subtitle) come from the
-       kit. Below 1060 the segmented direction group doesn't fit — swap in the
-       <select>. */
-    @media (max-width: 1060px) {
+       kit. The segmented direction group swaps to its <select> at the 1400
+       label edge, not 1060: kit 0.10.0's larger lockup (12/11px, ~212px wide
+       vs ~169) pushed the one-row bar off the right edge between 1061 and
+       ~1150px, and at 1061-1400 on pre-2026-09-29 dates with all seven
+       directions (verified Chromium + WebKit). */
+    @media (max-width: 1400px) {
       #dir-group        { display: none; }
       .dir-select-group { display: flex; }
     }
@@ -317,8 +320,12 @@
        five buttons don't fit on one row until ~1000px even with the brand
        collapsed, so wrapping is allowed below 1060 (where the kit also tightens
        chrome and the direction group becomes a <select>). */
+    /* Above 1060 the controls stay one row, but the bar itself may wrap: on
+       pre-2026-09-29 dates (seven direction segments) at 1401-~1480px, where
+       the 1400 label shed hasn't started, the kit 0.10.0 lockup leaves the
+       row ~50-75px too wide, and wrapping drops the action buttons to a
+       second row instead of pushing them off-screen (WCAG 1.4.10). */
     @media (min-width: 1061px) {
-      .mco-navbar { flex-wrap: nowrap; }
       .controls   { flex-wrap: nowrap; }
     }
     /* Once wrapping starts, give the controls their own full-width row and lift
@@ -756,10 +763,10 @@
 
 <!-- mco-web-style (window.MCO / MCO.map). MapLibre has no script tag any
      more: mco-map.js imports it on demand (MCO.map.loadMapLibre). -->
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.9.0/core/mco-core.js"
-        integrity="sha384-yknmet0AW3oohpwhoHolSpFs3O+rLzc5OxHp60If3eqmF/ENZRfrILPIsCWm08Hf"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.10.0/core/mco-core.js"
+        integrity="sha384-F/YeBkOPRU4+DPRf7McL88FjA76l+QnIEhFBUYDSrjBHcr4guZyDQvcG5x1VMjo/"
         crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.9.0/map/mco-map.js"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.10.0/map/mco-map.js"
         integrity="sha384-tmDqtqi4yYiDHOxkZikwzXF3Lpkb63b0Tu6K7jeCpU9gJkPB2GbpFHLasGHka6zP"
         crossorigin="anonymous"></script>
 <script src="app.js"></script>
