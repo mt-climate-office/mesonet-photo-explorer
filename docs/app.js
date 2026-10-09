@@ -25,7 +25,12 @@ const STATIONS_META   = "https://mesonet2.climate.umt.edu/api/stations?type=json
 const STATUS_META     = "https://mesonet2.climate.umt.edu/api/stations/status?type=json";
 const GRID_URL        = "grid.geojson";
 const DASH_URL        = (s) => `https://mesonet.climate.umt.edu/dash/${s}`;
-const LOGO_URL        = "assets/mco-logo.png";   // vendored — never hot-link climate.umt.edu (HOUSE-STYLE §1)
+// The export's wordmark comes from the pinned kit tag (HOUSE-STYLE §1 Logo:
+// exports draw from the kit, never climate.umt.edu), loaded with CORS so the
+// canvas stays exportable. KEEP the version in step with the kit tags in
+// index.html. -on-light / -on-dark is picked by the card's own background.
+const KIT_ASSETS      = "https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.0/assets/";
+const WORDMARK_URL    = (onLight) => `${KIT_ASSETS}mco-wordmark-on-${onLight ? 'light' : 'dark'}.svg`;
 
 const DIR_ORDER  = ["N", "S", "E", "W", "SNOW", "NS", "SS"];
 const DIR_LABELS = { N: "North", S: "South", E: "East", W: "West", SNOW: "Snow", NS: "North Sky", SS: "South Sky" };
@@ -1688,8 +1693,24 @@ function roundRectPath(ctx, x, y, w, h, r) {
   ctx.arcTo(x,     y,     x + w, y,     r);
   ctx.closePath();
 }
-// Branding card in the lower-left corner (over the basemap). Canvas can't read
-// custom properties, so the tokens are resolved here (MIGRATING.md § gotchas).
+// True when a CSS color is light enough that dark text reads on it (the card's
+// background decides the wordmark twin, not the page theme). A 1×1 canvas
+// normalises any CSS color the tokens may use; relative luminance per WCAG.
+function isLightColor(color) {
+  const c = document.createElement('canvas').getContext('2d');
+  c.fillStyle = '#000'; c.fillStyle = color;
+  c.fillRect(0, 0, 1, 1);
+  const [r, g, b] = c.getImageData(0, 0, 1, 1).data;
+  const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b) > 0.179;
+}
+
+// Branding card in the lower-left corner (over the basemap): the kit's MCO
+// wordmark (its own "Montana Climate Office" text, so it isn't repeated in
+// type), then the app name, the slot and direction, and the URL. Canvas can't
+// read custom properties, so the tokens are resolved here (MIGRATING.md §
+// gotchas). The wordmark keeps HOUSE-STYLE §1's clear space (≥15% of its
+// height) and minimum size (40px tall).
 async function drawBranding(ctx, W, H) {
   const cs = getComputedStyle(document.documentElement);
   const bgSurface = cs.getPropertyValue("--bg-surface").trim();
@@ -1698,9 +1719,10 @@ async function drawBranding(ctx, W, H) {
   const textMuted = cs.getPropertyValue("--text-muted").trim();
   const fontUi    = cs.getPropertyValue("--font-ui").trim() || "system-ui, sans-serif";
 
-  const BRAND_W = 280, BRAND_BOX_H = 80;
-  const BX = 24, BY = H - 24 - BRAND_BOX_H, PAD = 12, LOGO = 52;
-  const LX = BX + PAD, LY = BY + (BRAND_BOX_H - LOGO) / 2;
+  const MARK_H = 44, MARK_W = Math.round(MARK_H * 432 / 159);   // the SVG's 432×159 viewBox
+  const BRAND_W = 340, BRAND_BOX_H = 72;
+  const BX = 24, BY = H - 24 - BRAND_BOX_H, PAD = 14;
+  const LX = BX + PAD, LY = BY + (BRAND_BOX_H - MARK_H) / 2;
 
   ctx.save();
   ctx.globalAlpha = 0.88;
@@ -1710,26 +1732,21 @@ async function drawBranding(ctx, W, H) {
   ctx.strokeStyle = borderClr; ctx.lineWidth = 1; ctx.stroke();
   ctx.restore();
 
-  const logoImg = await loadImg(LOGO_URL);
-  if (logoImg) {
-    ctx.save();
-    ctx.beginPath(); roundRectPath(ctx, LX, LY, LOGO, LOGO, 8); ctx.clip();
-    ctx.drawImage(logoImg, LX, LY, LOGO, LOGO);
-    ctx.restore();
-  }
+  const mark = await loadImg(WORDMARK_URL(isLightColor(bgSurface)));
+  if (mark) ctx.drawImage(mark, LX, LY, MARK_W, MARK_H);
 
-  const TX = LX + LOGO + 10, TW = BX + BRAND_W - PAD - TX, midY = BY + BRAND_BOX_H / 2;
+  // Text column, a clear-space gap right of the mark.
+  const TX = LX + MARK_W + Math.ceil(MARK_H * 0.15) + 6, TW = BX + BRAND_W - PAD - TX, midY = BY + BRAND_BOX_H / 2;
   ctx.textBaseline = "middle";
   ctx.fillStyle = accentLn;
   ctx.font = `700 13px ${fontUi}`;
-  ctx.fillText("Mesonet Photo Explorer", TX, midY - 14, TW);
+  ctx.fillText("Mesonet Photo Explorer", TX, midY - 13, TW);
   ctx.fillStyle = textMuted;
   ctx.font = `400 11px ${fontUi}`;
-  ctx.fillText("Montana Climate Office", TX, midY, TW);
-  ctx.fillText(`${formatDisplayTimestamp(getSelectedDateTime())} · ${dirLabel(currentDir)}`, TX, midY + 13, TW);
+  ctx.fillText(`${formatDisplayTimestamp(getSelectedDateTime())} · ${dirLabel(currentDir)}`, TX, midY + 3, TW);
   ctx.textAlign = "right";
   ctx.font = `italic 10px ${fontUi}`;
-  ctx.fillText("climate.umt.edu", BX + BRAND_W - PAD, BY + BRAND_BOX_H - 7);
+  ctx.fillText("climate.umt.edu", BX + BRAND_W - PAD, BY + BRAND_BOX_H - 9);
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
 }
