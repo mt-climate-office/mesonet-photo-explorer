@@ -723,6 +723,26 @@ function syncDirections() {
 }
 
 // ── Direction controls (segmented buttons + narrow-screen <select>) ───────────
+// The two views of one choice are kept in step by the kit's
+// MCO.initSegmentedFallback: each mirrors the other, [hidden] goes on the one
+// not in use at the 1400px ladder edge, and focus crosses over when a resize
+// hides the focused one. The app only rebuilds the options per slot.
+// A segment's visible text is an abbreviation ("NS"); WCAG 2.5.3 wants the
+// accessible name to contain it, so the name starts with it whenever the full
+// label doesn't ("NS, North Sky"; "West" already starts with "W").
+function segText(dir) { return dir === "SNOW" ? "Snow" : dir; }
+function segName(dir) {
+  const text = segText(dir), full = dirLabel(dir);
+  return full.toLowerCase().startsWith(text.toLowerCase()) ? full : `${text}, ${full}`;
+}
+const dirFallback = MCO.initSegmentedFallback({
+  group: document.getElementById("dir-btns"),
+  select: document.getElementById("dir-select"),
+  // The 1400 label edge, not the kit's default 1060: this bar no longer fits
+  // its segments below it with the 0.10.0 lockup (index.html, Responsive).
+  mq: '(max-width: 1400px)',
+  onChange: (dir) => setDirection(dir),
+});
 function buildDirectionControls(allDirs) {
   const dirBtnsEl   = document.getElementById("dir-btns");
   const dirSelectEl = document.getElementById("dir-select");
@@ -732,10 +752,9 @@ function buildDirectionControls(allDirs) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "nav-btn seg-btn";
-    btn.dataset.dir = dir;
-    btn.textContent = dir === "SNOW" ? "Snow" : dir;
-    // The visible glyph is an abbreviation — name the button properly for AT.
-    btn.setAttribute("aria-label", dirLabel(dir));
+    btn.dataset.value = dir;
+    btn.textContent = segText(dir);
+    btn.setAttribute("aria-label", segName(dir));
     btn.setAttribute("aria-pressed", dir === currentDir ? "true" : "false");
     dirBtnsEl.append(btn);
 
@@ -748,10 +767,7 @@ function buildDirectionControls(allDirs) {
   updateRail();
 }
 function reflectDirection() {
-  document.querySelectorAll("#dir-btns .seg-btn").forEach(b =>
-    b.setAttribute("aria-pressed", b.dataset.dir === currentDir ? "true" : "false"));
-  const ds = document.getElementById("dir-select");
-  if (ds) ds.value = currentDir;
+  dirFallback.set(currentDir);
   updateRail();
 }
 function setDirection(dir) {
@@ -760,11 +776,6 @@ function setDirection(dir) {
   updateUrl();
   refreshMapImages();
 }
-document.getElementById("dir-btns").addEventListener("click", (e) => {
-  const btn = e.target.closest(".seg-btn");
-  if (btn) setDirection(btn.dataset.dir);
-});
-document.getElementById("dir-select").addEventListener("change", (e) => setDirection(e.target.value));
 // Rail: one button steps through the directions the selected slot offers.
 document.getElementById("btn-rail-dir").addEventListener("click", () => {
   const dirs = dirsForSlot(getSelectedDateTime());
@@ -1556,8 +1567,8 @@ function updateRail() {
   railReadout.replaceChildren(...[md, String(d.getUTCFullYear()), slotLabel(timeInput.value)].map(t => {
     const span = document.createElement('span'); span.textContent = t; return span;
   }));
-  btnRailDir.textContent = currentDir === 'SNOW' ? 'Snow' : currentDir;
-  btnRailDir.setAttribute('aria-label', `Camera direction ${dirLabel(currentDir)}. Switch to next direction`);
+  btnRailDir.textContent = segText(currentDir);
+  btnRailDir.setAttribute('aria-label', `Camera direction ${segName(currentDir)}. Switch to next direction`);
 }
 
 // ── Global keyboard shortcuts ─────────────────────────────────────────────────

@@ -176,9 +176,14 @@
     }
 
     /* Narrow-screen fallback for the segmented direction group (HOUSE-STYLE §3
-       cites this pattern). One of the two is always display:none, so only one
-       reaches the accessibility tree. */
-    .dir-select-group { display: none; }
+       cites this pattern). MCO.initSegmentedFallback puts [hidden] on whichever
+       of #dir-btns / #dir-select is not in use (≤1060px → the select); the
+       wrapper with its label follows the attribute. Keyed on the attribute,
+       not on a media query of its own, so the kit flips both in one tick and
+       can move focus across — a CSS-only hide blurs the focused segment first
+       (Chromium), which strands focus on <body>. */
+    #dir-group:has(> #dir-btns[hidden]),
+    .dir-select-group:has(> #dir-select[hidden]) { display: none; }
 
     /* ── Search combobox (app-local: kit-deferred component) ───────────────── */
     .search-wrap { position: relative; display: inline-flex; align-items: center; }
@@ -307,15 +312,11 @@
 
     /* ── Responsive ────────────────────────────────────────────────────────── */
     /* Breakpoints 1400 (labels) / 1060 (chrome) / 750 (subtitle) come from the
-       kit. The segmented direction group swaps to its <select> at the 1400
-       label edge, not 1060: kit 0.10.0's larger lockup (12/11px, ~212px wide
-       vs ~169) pushed the one-row bar off the right edge between 1061 and
-       ~1150px, and at 1061-1400 on pre-2026-09-29 dates with all seven
-       directions (verified Chromium + WebKit). */
-    @media (max-width: 1400px) {
-      #dir-group        { display: none; }
-      .dir-select-group { display: flex; }
-    }
+       kit. The kit's segmented fallback swaps the direction group to its
+       <select> at the 1400 label edge, not its default 1060 (rules above;
+       app.js passes the query): kit 0.10.0's larger lockup (~212px vs ~169)
+       pushed the one-row bar off the right edge at 1061-~1150px, and at
+       1061-1400 on pre-2026-09-29 dates with all seven directions. */
     /* This bar is control-dense: search + date stepper + time + direction +
        five buttons don't fit on one row until ~1000px even with the brand
        collapsed, so wrapping is allowed below 1060 (where the kit also tightens
@@ -567,7 +568,7 @@
     </div>
     <div class="control-group dir-select-group">
       <label class="control-label" for="dir-select">Direction</label>
-      <select class="time-select dir-select" id="dir-select" aria-label="Camera direction"></select>
+      <select class="time-select dir-select" id="dir-select" aria-label="Camera direction" hidden></select>
     </div>
   </div>
 
