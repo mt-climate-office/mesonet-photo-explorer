@@ -584,8 +584,9 @@ async function onMapLoad() {
 
   // Deep-link to ?station=… , else publish a clean initial URL.
   if (_initStation && _featureByStation.has(_initStation)) {
-    if (urlParams.has('lng')) openModalByStation(_initStation);
-    else                      flyToAndOpen(_initStation);
+    // The entry already names the station, so these replace, never push.
+    if (urlParams.has('lng')) openModalByStation(_initStation, null, { push: false });
+    else                      flyToAndOpen(_initStation, null, { push: false });
   } else {
     updateUrl();
   }
@@ -1087,12 +1088,12 @@ function selectStation(stationId) {
   flyToAndOpen(stationId, opener);
 }
 
-function flyToAndOpen(stationId, opener) {
+function flyToAndOpen(stationId, opener, opts) {
   const f = _featureByStation.get(stationId);
   if (!f) { MCO.showToast('Station not found'); return; }
   map.flyTo({ center: f.centroid, zoom: SEARCH_FLY_ZOOM, speed: SEARCH_FLY_SPEED,
               animate: !MCO.reducedMotion() });
-  map.once('moveend', () => openModalByStation(stationId, opener));
+  map.once('moveend', () => openModalByStation(stationId, opener, opts));
 }
 
 // ── Photo gallery modal + lightbox ────────────────────────────────────────────
@@ -1137,7 +1138,7 @@ let _galleryOpener = null;
 // Fill the gallery for a station. Runs at open and on every step; it owns the
 // selected-station state and mirrors it into the URL, so a reload lands on the
 // station the user stepped to. Returns the photo count for the announcement.
-function renderGallery(stationId) {
+function renderGallery(stationId, { writeUrl = true } = {}) {
   const f = _featureByStation.get(stationId);
   if (!f) return 0;
   const dtStr = getSelectedDateTime();
@@ -1195,13 +1196,20 @@ function renderGallery(stationId) {
   });
 
   _selectedStation = stationId;
-  updateUrl();
+  if (writeUrl) updateUrl();
   return validDirs.length;
 }
-function openModalByStation(stationId, opener) {
+// Opening the gallery from the map or search is drill-down (HOUSE-STYLE §4):
+// it PUSHES a history entry, marked {mcoDetail}, so Back closes it and
+// Forward reopens it. A deep link and a Forward replay pass push:false — their
+// entry already names the station. Station steps inside the gallery or
+// lightbox replace (renderGallery → updateUrl), so stepping never floods the
+// history.
+function openModalByStation(stationId, opener, { push = true } = {}) {
   const f = _featureByStation.get(stationId);
   if (!f) return;
-  const n = renderGallery(stationId);
+  const n = renderGallery(stationId, { writeUrl: false });
+  updateUrl(push ? { push: true, state: { mcoDetail: stationId } } : {});
   _galleryOpener = opener || document.activeElement;
   modal.showModal();
   document.getElementById("modal-close").focus();
@@ -1219,11 +1227,33 @@ function stepGalleryStation(delta) {
 // One close path for the button, Esc and backdrop click alike.
 // The map deliberately never moves for a station step, not even on close —
 // the user is browsing photos, not the map.
+// Closing: if this gallery pushed its entry, step Back over it, so the
+// dialog's own close (×, Esc, backdrop) and the browser's Back land on the
+// same entry and the history never holds two "gallery closed" entries in a
+// row; Forward reopens the gallery either way. When Back itself closed it
+// (_closingFromHistory), the URL is already right and nothing is popped again.
+let _closingFromHistory = false;
 modal.addEventListener("close", () => {
   _selectedStation = null;
-  updateUrl();
+  if (_closingFromHistory) _closingFromHistory = false;
+  else if (history.state && history.state.mcoDetail) history.back();
+  else updateUrl();
   restoreFocus(_galleryOpener);
   _galleryOpener = null;
+});
+// Back / Forward (MCO.onUrlState): the only pushed entries are gallery
+// openings, so all a history move does here is close or (re)open the gallery.
+MCO.onUrlState((params) => {
+  const st = (params.get('station') || '').toLowerCase();
+  if (st && _featureByStation.has(st)) {
+    if (!modal.open) openModalByStation(st, null, { push: false });
+    else if (st !== _selectedStation) renderGallery(st, { writeUrl: false });
+  } else if (modal.open) {
+    _closingFromHistory = true;
+    _galleryStale = false;   // no re-render (and so no URL write) on the way out
+    if (lightbox.open) lightbox.close();
+    modal.close();
+  }
 });
 document.getElementById("modal-close").addEventListener("click", () => modal.close());
 modal.addEventListener("click", (e) => { if (e.target === modal) modal.close(); });
@@ -1536,7 +1566,7 @@ function updateSocialMeta() {
 // except date and time, which are always emitted on purpose: their "default"
 // is the latest available timestep, so a link without them would show a
 // different view tomorrow.
-function updateUrl() {
+function updateUrl({ push = false, state } = {}) {
   // Hour only while every slot is on the hour ("time=15"); "HH:MM" otherwise.
   const [h, m] = timeInput.value.split(":");
   const params = { date: dateInput.value, time: +m ? `${h}:${m}` : parseInt(h) };
@@ -1556,7 +1586,8 @@ function updateUrl() {
   }
   if (_selectedStation) params.station = _selectedStation;
   if (!kbdShortcuts) params.kbd = 'off';   // preserve the a11y opt-out across navigation
-  MCO.replaceUrlState(params);
+  if (push) MCO.pushUrlState(params, { state });
+  else MCO.replaceUrlState(params);
   updateSocialMeta();
   updateRail();
   _dateSteppers.forEach(st => st.refresh());   // bounds may have moved
