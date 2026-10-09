@@ -1400,27 +1400,15 @@ function stepDate(delta) {
   clearTimeout(_stepSettle);
   if (!_pointerHeld) _stepSettle = setTimeout(settleSteps, STEP_SETTLE_MS);
 }
-// The kit disables a stepper button at its bound, and disabling the focused
-// button drops focus to <body> (a keyboard user stepping to the newest day
-// lost their place). The kit's refresh() runs synchronously right after
-// onStep, so a microtask sees the result: hand focus to the pair's other
-// button, which is then always enabled.
+// The kit keeps keyboard focus at a bound (0.11.2): disabling the focused
+// button hands focus to the pair's other one.
 _dateSteppers = [
   ["btn-date-prev", "btn-date-next"],
   ["btn-rail-prev", "btn-rail-next"],
-].map(([prevId, nextId]) => {
-  const prev = document.getElementById(prevId), next = document.getElementById(nextId);
-  return MCO.initStepper({
-    prev, next, canStep: canStepDate,
-    onStep: (delta) => {
-      const had = document.activeElement;
-      stepDate(delta);
-      queueMicrotask(() => {
-        if ((had === prev || had === next) && had.disabled) (had === prev ? next : prev).focus();
-      });
-    },
-  });
-});
+].map(([prev, next]) => MCO.initStepper({
+  prev: document.getElementById(prev), next: document.getElementById(next),
+  onStep: stepDate, canStep: canStepDate,
+}));
 
 // ── Boundaries toggle (county lines + tribal nations, together) ───────────────
 const BOUNDARY_LAYERS = ["counties-line", "tribal-fill", "tribal-line", "tribal-label"];
