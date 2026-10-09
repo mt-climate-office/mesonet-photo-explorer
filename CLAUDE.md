@@ -6,7 +6,7 @@ The Montana Mesonet Photo Explorer: a static MapLibre single-page app in `docs/`
 ## House style
 
 This app consumes mco-web-style (pinned + SRI in `docs/index.html`; currently
-**v0.11.1**, with MapLibre GL **6.11.2** — check the tag in that file rather than trusting this line). Design tokens, a11y mandates, and interaction conventions: see
+**v0.11.2**, with MapLibre GL **6.11.2** — check the tag in that file rather than trusting this line). Design tokens, a11y mandates, and interaction conventions: see
 HOUSE-STYLE.md in https://github.com/mt-climate-office/mco-web-style — tokens
 only (no raw hexes), `--accent` is fill-only, `aria-pressed` drives toggle
 styling, canvas data needs a live region + sr-only table twin. To change shared
