@@ -635,17 +635,13 @@
 <div class="mco-scrim" id="rail-scrim" hidden></div>
 
 <main id="main" tabindex="-1">
+  <!-- The sr-only table twin of the mosaic (MCO.srTable, from app.js) is
+       appended to <main> after this. -->
   <div id="map-container">
     <div id="map" role="application"
-         aria-label="Map of Montana Mesonet weather stations. Click a station's photo to view its gallery."></div>
+         aria-label="Map of Montana Mesonet weather stations. Click a station's photo to view its gallery. The data is in the table that follows."></div>
   </div>
 </main>
-
-<!-- Screen-reader table twin of the WebGL photo mosaic (HOUSE-STYLE §5.2);
-     rebuilt by app.js whenever the mosaic is. -->
-<section class="sr-only" aria-label="Station photo data">
-  <table id="sr-photo-table"></table>
-</section>
 
 <!-- Tooltip is purely visual: anchored to the cursor with no focusable trigger,
      so it is decoration for AT. The kit announcer (MCO.announce, from app.js)

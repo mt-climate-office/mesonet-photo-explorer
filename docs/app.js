@@ -101,7 +101,6 @@ const searchDropdown = document.getElementById("search-dropdown");
 const infoModal      = document.getElementById("info-modal");
 const modal          = document.getElementById("modal");
 const lightbox       = document.getElementById("lightbox");
-const srTableEl      = document.getElementById("sr-photo-table");
 
 // Which Mountain wall-clock times the Time <select> offers is decided per
 // selected date from the schedule (slotsForDate, below). The static <option>s
@@ -946,26 +945,27 @@ function refreshMapImages() {
 }
 
 // Screen-reader table twin of the WebGL photo mosaic (HOUSE-STYLE §5.2): one
-// row per drawn grid cell, rebuilt whenever the mosaic is.
+// row per drawn grid cell, rebuilt whenever the mosaic is. The kit's
+// MCO.srTable owns the markup (an .sr-only wrapper inside <main>, after the
+// map, a row-count caption, textContent-only cells, and a rebuild only when a
+// row changed); the id stays for anything that hooks the table.
+const srTwin = MCO.srTable({
+  caption: 'Montana Mesonet station photos currently shown on the map',
+  columns: [
+    { key: 'station', label: 'Station', rowHeader: true, value: (f) => `${f.name} (${f.station})` },
+    { key: 'dir', label: 'Camera direction', value: () => dirLabel(currentDir) },
+    { key: 'photo', label: 'Photo (Mountain Time)', value: (f) => {
+        const has = _photoState.get(f.station);   // null while its load is in flight
+        return has === null ? 'Loading…' : has ? formatDisplayTimestamp(getSelectedDateTime()) : 'No photo';
+      } },
+  ],
+  rowKey: (f) => f.station,
+});
+srTwin.element.querySelector('table').id = 'sr-photo-table';
 function renderSRTable() {
-  if (!srTableEl) return;
-  const stamp = formatDisplayTimestamp(getSelectedDateTime());
-  const label = dirLabel(currentDir);
-  const shown = _activeFeatures
+  srTwin.render(_activeFeatures
     .filter(f => _photoState.has(f.station))
-    .sort((a, b) => a.name.localeCompare(b.name));
-  const rows = shown.map((f) => {
-    const has = _photoState.get(f.station);   // null while its load is in flight
-    const cell = has === null ? 'Loading…' : has ? MCO.escapeHTML(stamp) : 'No photo';
-    return `<tr><th scope="row">${MCO.escapeHTML(f.name)} (${MCO.escapeHTML(f.station)})</th>` +
-      `<td>${MCO.escapeHTML(label)}</td>` +
-      `<td>${cell}</td></tr>`;
-  }).join('');
-  srTableEl.innerHTML =
-    '<caption>Montana Mesonet station photos currently shown on the map</caption>' +
-    '<thead><tr><th scope="col">Station</th><th scope="col">Camera direction</th>' +
-    '<th scope="col">Photo (Mountain Time)</th></tr></thead>' +
-    `<tbody>${rows}</tbody>`;
+    .sort((a, b) => a.name.localeCompare(b.name)));
 }
 
 // Announce the mosaic's contents. Deduped against the last announcement so a
