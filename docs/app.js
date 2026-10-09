@@ -1071,10 +1071,10 @@ function selectStation(stationId) {
   // hidden element silently drops focus to <body>.
   // In rail mode the field is in the drawer, which closes here — so the menu
   // button, which stays on screen, takes focus back when the gallery closes.
-  const opener = RAIL_MQ.matches ? btnMenu
+  const opener = navRail.isRail() ? btnMenu
                : searchCollapse.isCollapsed() ? btnSearchToggle : searchInput;
   searchCollapse.close({ restoreFocus: false });
-  closeDrawer({ restoreFocus: false });
+  navRail.close({ restoreFocus: false });
   flyToAndOpen(stationId, opener);
 }
 
@@ -1456,45 +1456,25 @@ async function copyShareLink() {
 }
 document.getElementById("btn-share").addEventListener("click", copyShareLink);
 
-// ── Landscape rail + drawer (app-local prototype) ─────────────────────────────
-// On short landscape screens the navbar is a left rail (CSS "RAIL MODE") and
-// the full control set lives in a slide-out drawer. Disclosure semantics: the
-// menu button carries aria-expanded; opening moves focus in and makes the map
-// inert (it sits under a scrim); Esc, the scrim, or the button close it and
-// focus returns to the button. KEEP IN SYNC with the CSS media query.
-const RAIL_MQ    = window.matchMedia('(max-height: 560px) and (orientation: landscape)');
-const navDrawer  = document.getElementById('nav-drawer');
-const btnMenu    = document.getElementById('btn-menu');
-const railScrim  = document.getElementById('rail-scrim');
-
-function isDrawerOpen() { return navDrawer.classList.contains('is-open'); }
-function openDrawer(focusEl) {
-  navDrawer.classList.add('is-open');
-  btnMenu.setAttribute('aria-expanded', 'true');
-  railScrim.hidden = false;
-  mainEl.inert = true;
-  // display flips synchronously with the class, so the target is focusable now.
-  (focusEl || navDrawer.querySelector('input, select, button')).focus();
-}
-function closeDrawer({ restoreFocus = true } = {}) {
-  if (!isDrawerOpen()) return;
-  navDrawer.classList.remove('is-open');
-  btnMenu.setAttribute('aria-expanded', 'false');
-  railScrim.hidden = true;
-  mainEl.inert = false;
-  if (restoreFocus) btnMenu.focus();
-}
-btnMenu.addEventListener('click', () => { if (isDrawerOpen()) closeDrawer(); else openDrawer(); });
-railScrim.addEventListener('click', () => closeDrawer());
-navDrawer.addEventListener('keydown', (e) => {
-  // The search field consumes its own Esc first (dropdown, then overlay).
-  if (e.key === 'Escape' && isDrawerOpen() && !e.defaultPrevented) { e.preventDefault(); closeDrawer(); }
+// ── Landscape rail + drawer (kit 0.10.0) ──────────────────────────────────────
+// On short landscape screens (MCO.viewport.RAIL_MQ) the navbar is the kit's
+// left rail and the full control set lives in its drawer. MCO.initNavRail owns
+// the disclosure: aria-expanded on the menu button, focus into the drawer on
+// open (the search field first), everything else inert under the scrim, Esc /
+// the scrim / the button to close with focus back on the button, and closing
+// when a rotation leaves rail mode. The app keeps its three hand-offs (HOUSE-
+// STYLE §3 Short landscape): `/` opens the drawer on the search field, a search
+// result closes it without restoring focus, and Export / the info dialog close
+// it first (the map has to be visible for them).
+const btnMenu = document.getElementById('btn-menu');
+const navRail = MCO.initNavRail({
+  toggle: btnMenu,
+  drawer: document.getElementById('nav-drawer'),
+  scrim: document.getElementById('rail-scrim'),
+  initialFocus: searchInput,
 });
-// Leaving rail mode (rotation) turns the drawer back into the navbar row.
-RAIL_MQ.addEventListener('change', () => closeDrawer({ restoreFocus: false }));
-// Export and the dialogs need the map visible, so they close the drawer first.
 for (const id of ['btn-export', 'btn-info']) {
-  document.getElementById(id).addEventListener('click', () => closeDrawer({ restoreFocus: false }));
+  document.getElementById(id).addEventListener('click', () => navRail.close({ restoreFocus: false }));
 }
 
 // Date/time/direction at a glance, since the drawer is usually closed.
@@ -1523,7 +1503,7 @@ window.addEventListener("keydown", (e) => {
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
     e.preventDefault();
     // Rail mode: the field lives in the drawer.
-    if (RAIL_MQ.matches) { openDrawer(searchInput); return; }
+    if (navRail.isRail()) { navRail.open(searchInput); return; }
     // Below 460px the field is collapsed — open the overlay instead of focusing
     // a hidden input (which would silently do nothing).
     if (searchCollapse.isCollapsed()) { searchCollapse.open(); return; }

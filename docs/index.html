@@ -312,97 +312,35 @@
        #btn-search-toggle rule — an ID selector outbids the kit's class and would
        strand the toggle hidden. */
 
-    /* ── RAIL MODE (app-local prototype) ───────────────────────────────────
-       Landscape phones: the navbar becomes a narrow left rail and everything
-       else moves into a slide-out drawer, so the map gets the full height —
-       Montana is ~1.75:1 and a landscape phone ~2.2:1, so the rail sits in
-       width the fit wasn't using. KEEP IN SYNC with RAIL_MQ in app.js. The
-       kit's compact query includes (max-height: 560px); this is its landscape
-       half. Candidate for the kit if a second app wants it. */
-    .rail { display: none; }
-    .nav-drawer { display: contents; }
+    /* ── Landscape rail (kit 0.10.0: .mco-navbar[data-rail] + MCO.initNavRail)
+       This app prototyped the rail (#38); the kit owns it now — the fixed 56px
+       column, body padding, the drawer's position/display/transition, and the
+       un-hiding of the lockup, labels and button text inside it. What stays
+       here is this app's own content: the rail readout and direction cycle,
+       and how its control groups stack in the drawer. Same query as
+       MCO.viewport.RAIL_MQ. */
     @media (max-height: 560px) and (orientation: landscape) {
-      body { flex-direction: row; }
-      main { min-width: 0; }
-      .mco-navbar {
-        flex-direction: column; flex-wrap: nowrap; justify-content: flex-start;
-        width: calc(56px + env(safe-area-inset-left)); height: 100dvh;
-        padding: max(0.4rem, env(safe-area-inset-top)) 0.4rem
-                 max(0.4rem, env(safe-area-inset-bottom)) max(0.4rem, env(safe-area-inset-left));
-        border-bottom: 0; border-right: 1px solid var(--border);
-      }
-      /* The brand underline becomes a right-edge stripe. */
-      .mco-navbar::after { top: 0; left: auto; right: 0; width: 2px; height: auto; }
-      .mco-navbar > .nav-divider { display: none; }
-
-      .rail {
-        display: flex; flex-direction: column; align-items: center; gap: 0.35rem;
-        min-height: 0; overflow-y: auto; scrollbar-width: none;
-      }
-      .rail .nav-btn { width: 40px; min-height: 40px; }
-      .rail-dir { font: 600 0.72rem var(--font-mono); }
+      .mco-rail .rail-dir { font: 600 0.72rem var(--font-mono); }
       .rail-readout {
         margin: 0; text-align: center; line-height: 1.25;
         font-size: 0.66rem; font-weight: 500; color: var(--text-secondary);
         white-space: nowrap;
       }
       .rail-readout span { display: block; }
-
-      /* The drawer. The navbar's backdrop-filter makes it the containing block
-         for fixed descendants, so this is positioned against the rail. */
-      .nav-drawer {
-        flex-direction: column; align-items: stretch; gap: 0.9rem;
-        position: absolute; top: 0; bottom: 0; left: 100%;
-        width: min(300px, calc(100vw - 56px - env(safe-area-inset-left)));
-        padding: max(0.75rem, env(safe-area-inset-top)) 0.9rem max(0.75rem, env(safe-area-inset-bottom));
-        overflow-y: auto; overscroll-behavior: contain;
-        background: var(--bg-surface); border-right: 1px solid var(--border);
-        box-shadow: var(--shadow);
-        /* display, not visibility: children with their own transitions (the
-           search field) would inherit a visibility change a frame late, and
-           openDrawer() could not focus into it. Slides in via @starting-style;
-           closing is instant. */
-        display: none;
-        transition: transform 0.18s ease-out, opacity 0.18s ease-out;
+      /* Undo the ≤1060 bar's row ordering (nav-meta lifted, controls given a
+         full-width row): in the drawer's column, search/date/time/direction
+         come first and flex-basis:100% would mean full height. */
+      .mco-nav-drawer .controls { order: 0; flex-basis: auto; gap: 0.75rem; }
+      .mco-nav-drawer .control-group { flex-direction: column; align-items: stretch; gap: 0.25rem; }
+      .mco-nav-drawer .date-stepper input[type="date"] { flex: 1; min-width: 0; }
+      .mco-nav-drawer .date-step-btns { flex-direction: row; gap: 4px; }
+      .mco-nav-drawer .time-select { width: 100%; }
+      /* kit-override: the search list stays inside the short viewport. */
+      .mco-nav-drawer .mco-search-list { max-height: 50dvh; }
+      .mco-nav-drawer .search-kbd { display: none; }
+      .mco-nav-drawer .nav-meta {
+        order: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;
       }
-      .nav-drawer.is-open {
-        display: flex;
-        @starting-style { transform: translateX(-12px); opacity: 0; }
-      }
-      /* The kit visually hides the lockup ≤750px; the drawer has room for it
-         (:where() in the kit keeps this override cheap — HOUSE-STYLE §3). */
-      .nav-drawer .brand {
-        position: static; width: auto; height: auto; margin: 0;
-        overflow: visible; clip: auto; white-space: normal;
-      }
-      /* Undo the ≤1060 navbar row ordering: search/date/time/direction first,
-         the action buttons after. */
-      .nav-drawer .controls { order: 0; flex-basis: auto; flex-direction: column; align-items: stretch; gap: 0.75rem; }
-      .nav-drawer .control-group { flex-direction: column; align-items: stretch; gap: 0.25rem; }
-      /* Visible labels again (the kit hides them visually ≤1400px). */
-      .mco-navbar .nav-drawer .control-label {
-        position: static; width: auto; height: auto; margin: 0;
-        overflow: visible; clip: auto;
-      }
-      .nav-drawer .date-stepper input[type="date"] { flex: 1; min-width: 0; }
-      .nav-drawer .date-step-btns { flex-direction: row; gap: 4px; }
-      .nav-drawer .time-select { width: 100%; }
-      .mco-navbar .nav-drawer .mco-search-collapse { display: flex; }
-      /* kit-override: in the rail drawer (app-local prototype) the field
-         fills the drawer and its list stays inside the short viewport. */
-      .nav-drawer .mco-search .mco-search-input { width: 100%; }
-      .nav-drawer .mco-search-list { max-height: 50dvh; }
-      .nav-drawer .search-kbd { display: none; }
-      .nav-drawer .nav-meta {
-        order: 1; margin-left: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;
-      }
-      /* Labelled buttons in the drawer — the icons alone aren't self-explanatory. */
-      .mco-navbar .nav-drawer .btn-label { display: inline; }
-      .mco-navbar .nav-drawer .nav-btn:has(> .btn-label) { justify-content: flex-start; padding: 0.4rem 0.6rem; }
-      .mco-navbar .nav-drawer .mco-search-toggle { display: none; }
-    }
-    @media (max-height: 560px) and (orientation: landscape) and (prefers-reduced-motion: reduce) {
-      .nav-drawer { transition: none; }
     }
 
     /* WCAG 2.5.5 — touch targets for app-owned controls (kit covers its own). */
@@ -432,17 +370,17 @@
 <!-- Skip link first (WCAG 2.4.1) — mco-web-style snippets/skip-link.html -->
 <a class="mco-skip-link" href="#main">Skip to map</a>
 
-<header id="navbar" class="mco-navbar">
+<header id="navbar" class="mco-navbar" data-rail>
   <a href="https://climate.umt.edu" target="_blank" rel="noopener noreferrer"
      class="logo-link" aria-label="Montana Climate Office">
     <img src="assets/mco-logo.png" alt="" class="logo-img" width="40" height="40">
   </a>
 
-  <!-- Landscape-phone rail (app-local prototype). display:none except in rail
-       mode (see the RAIL MODE block in the <style> and RAIL_MQ in app.js), so
-       it is out of the accessibility tree everywhere else. Next above previous,
-       like the date stepper. -->
-  <div class="rail" id="rail">
+  <!-- Landscape-phone rail (kit .mco-rail, 0.10.0). display:none except at
+       MCO.viewport.RAIL_MQ, so it is out of the accessibility tree everywhere
+       else. Menu, then the hot controls: next day above previous (like the
+       date stepper), a date/time readout, and the direction cycle. -->
+  <div class="mco-rail" id="rail">
     <button type="button" class="nav-btn icon-only" id="btn-menu"
             aria-expanded="false" aria-controls="nav-drawer" aria-label="Map controls">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-width="2"
@@ -469,9 +407,10 @@
 
   <div class="nav-divider" aria-hidden="true"></div>
 
-  <!-- display:contents everywhere but rail mode, so the navbar lays out exactly
-       as if this wrapper weren't here; in rail mode it is the slide-out drawer. -->
-  <div class="nav-drawer" id="nav-drawer">
+  <!-- Kit .mco-nav-drawer: display:contents everywhere but rail mode, so the
+       navbar lays out exactly as if this wrapper weren't here; in rail mode it
+       is the drawer beside the rail (MCO.initNavRail). -->
+  <div class="mco-nav-drawer" id="nav-drawer">
   <div class="brand">
     <h1 class="brand-title">Mesonet Photo Explorer</h1>
     <span class="brand-subtitle">A service of the Montana Climate Office</span>
