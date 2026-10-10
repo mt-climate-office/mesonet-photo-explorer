@@ -40,11 +40,11 @@
   <!-- Favicons / app icons: hot-linked from the pinned kit tag (kit 0.9.0+,
        decided 2026-10-08) so they version with the kit and can't drift. The
        navbar logo stays vendored (assets/mco-logo.png). -->
-  <link rel="icon" type="image/png" sizes="32x32" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/assets/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/assets/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/assets/apple-touch-icon.png">
-  <link rel="icon" type="image/png" sizes="192x192" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/assets/icon-192.png">
-  <link rel="icon" type="image/png" sizes="512x512" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/assets/icon-512.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/assets/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/assets/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/assets/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/assets/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/assets/icon-512.png">
 
   <!-- Open Graph / social sharing. Canonical on the production host (the
        Pages origin is only the reverse proxy's upstream). The card image is
@@ -59,6 +59,8 @@
   <meta property="og:url"          content="https://mesonet.climate.umt.edu/photos/">
   <meta property="og:image"        content="https://mesonet.climate.umt.edu/photos/preview.png">
   <meta property="og:image:type"   content="image/png">
+  <meta property="og:image:width"  content="2800">
+  <meta property="og:image:height" content="1400">
   <meta property="og:image:alt"    content="Map of Montana Mesonet weather stations with station photos">
 
   <!-- Twitter / X card -->
@@ -66,6 +68,7 @@
   <meta name="twitter:title"       content="Photos · Montana Mesonet">
   <meta name="twitter:description" content="Browse Montana Mesonet station photos by date, time, and camera direction. A service of the Montana Climate Office.">
   <meta name="twitter:image"       content="https://mesonet.climate.umt.edu/photos/preview.png">
+  <meta name="twitter:image:alt"   content="Map of Montana Mesonet weather stations with station photos">
 
   <!-- Anti-flash theme boot (mco-web-style snippets/anti-flash.html) — inline
        by design; validates saved values because mco-theme is shared org-wide. -->
@@ -94,8 +97,8 @@
   <!-- House fonts: kit-hosted (mco-web-style 0.7.0+), declared in mco-theme.css.
        Preloaded so the first frame is already in Outfit — no system-font flash.
        Same @version as the theme CSS; crossorigin is required on font preloads. -->
-  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/fonts/space-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/fonts/space-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
   <!-- MapLibre GL 6.x (mco-web-style snippets/head.html). ES modules only:
        mco-map.js imports it (MCO.map.loadMapLibre), and this import map carries
        the SRI hashes for the entry and its shared chunk. Keep it ONE LINE, byte
@@ -113,8 +116,8 @@
         crossorigin="anonymous">
   <!-- mco-web-style: tokens (3 themes), a11y utilities, navbar/toast/tooltip/
        modal shells, MapLibre polish. Pinned + SRI per house policy. -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/theme/mco-theme.css"
-        integrity="sha384-22H/4uZb4dmkrTZlLp4NJ4J+Wg39RNRIVIKO0x1HPYfyUWj81FA0fyM/uoRqbqme"
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/theme/mco-theme.css"
+        integrity="sha384-SVU0zinE4kdg7DL79mgXmebk2GD/Gy4cnCeu/hn3eZSxgg3X+g4Fr4qC0Ou1bE20"
         crossorigin="anonymous">
 
   <style>
@@ -160,12 +163,6 @@
     }
     input[type="date"]:hover, select.time-select:hover { background: var(--accent-hover); border-color: var(--accent-line); }
     input[type="date"]:focus, select.time-select:focus { border-color: var(--accent-line); background: var(--accent-hover); }
-    /* WebKit focuses a date input's month/day/year sub-fields and never
-       matches :focus-visible on the input itself, so keyboard users got no
-       ring (keyboard.mjs, WebKit ⌥Tab). A date field is text entry, where
-       Chromium shows the ring on any focus anyway: give it the kit's
-       universal ring on :focus. */
-    input[type="date"]:focus { outline: 2px solid var(--accent-line); outline-offset: 2px; }
 
     /* Date stepper: ▲/▼ stacked beside the date input (next above previous). */
     .date-stepper { display: flex; align-items: center; gap: 4px; }
@@ -176,53 +173,23 @@
     }
 
     /* Narrow-screen fallback for the segmented direction group (HOUSE-STYLE §3
-       cites this pattern). One of the two is always display:none, so only one
-       reaches the accessibility tree. */
-    .dir-select-group { display: none; }
+       cites this pattern). MCO.initSegmentedFallback puts [hidden] on whichever
+       of #dir-btns / #dir-select is not in use (≤1400px → the select); the
+       wrapper with its label follows the attribute. Keyed on the attribute,
+       not on a media query of its own, so the kit flips both in one tick and
+       can move focus across — a CSS-only hide blurs the focused segment first
+       (Chromium), which strands focus on the document body. */
+    #dir-group:has(> #dir-btns[hidden]),
+    .dir-select-group:has(> #dir-select[hidden]) { display: none; }
 
-    /* ── Search combobox (app-local: kit-deferred component) ───────────────── */
-    .search-wrap { position: relative; display: inline-flex; align-items: center; }
-    input[type="search"] {
-      /* Solid bg (not rgba) so it can't be visually replaced by Chrome's
-         autofill mask. */
-      background-color: var(--input-bg);
-      color: var(--text-primary);
-      border: 1px solid var(--ctrl-border); border-radius: var(--radius-md);
-      padding: 0 12px 0 30px; height: 34px;
-      width: 200px; max-width: 100%;
-      font-size: 0.82rem; font-family: inherit;
-      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237a8190' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='7'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>");
-      background-repeat: no-repeat; background-position: 8px center; background-size: 14px 14px;
-      transition: var(--transition), width 0.18s ease-out;
-    }
-    input[type="search"]:hover { border-color: var(--accent-line); }
-    /* No outline:none here — the kit's universal :focus-visible ring stays. */
-    input[type="search"]:focus { border-color: var(--accent-line); width: 240px; }
-    input[type="search"]::-webkit-search-cancel-button { filter: var(--ctrl-icon-filter, none); }
-    input[type="search"]::placeholder { color: var(--text-muted); opacity: 1; }
-
-    /* Custom suggestions listbox — replaces the native <datalist> popup, which
-       is unstylable Chrome UI. */
-    #search-dropdown {
-      position: absolute; top: calc(100% + 4px); left: 0; right: 0; min-width: 100%;
-      background: var(--bg-surface); border: 1px solid var(--border);
-      border-radius: var(--radius-md); box-shadow: var(--shadow);
-      list-style: none; margin: 0; padding: 4px;
-      max-height: 280px; overflow-y: auto; z-index: var(--z-flyout);
-    }
-    #search-dropdown li {
-      display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
-      padding: 5px 8px; font-size: 0.8rem; cursor: pointer;
-      border-radius: var(--radius-sm); color: var(--text-secondary);
-      white-space: nowrap; overflow: hidden;
-    }
-    #search-dropdown li:hover, #search-dropdown li.active { background: var(--accent-hover); color: var(--text-primary); }
-    #search-dropdown li.empty { color: var(--text-muted); font-style: italic; cursor: default; }
-    #search-dropdown li.empty:hover { background: none; }
-    #search-dropdown .search-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-    /* --text-secondary, not --text-muted: keeps AA headroom over the
-       accent-tinted hover background. */
-    #search-dropdown .search-meta { flex-shrink: 0; font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-secondary); }
+    /* ── Search (kit: .mco-search + MCO.initSearchBox, 0.8.0) ───────────────
+       Field, icon and listbox are the kit's. App-owned: the "/" hint, the
+       cancel-glyph filter, and one tagged width. */
+    /* kit-override: 200px, not the kit's 220px — this bar is control-dense
+       (search + date stepper + time + up to seven direction segments + five
+       buttons) and already runs out of room just above the 1060px shed. */
+    .mco-search .mco-search-input { width: 200px; padding-right: 30px; }
+    #search-input::-webkit-search-cancel-button { filter: var(--ctrl-icon-filter, none); }
     .search-kbd {
       position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
       font: 600 0.62rem var(--font-mono);
@@ -231,7 +198,7 @@
       pointer-events: none; transition: opacity 0.15s;
     }
     /* Hide the / hint once the user has focused the search (or while typing). */
-    .search-wrap:focus-within .search-kbd { opacity: 0; }
+    #search-wrap:focus-within .search-kbd { opacity: 0; }
 
     /* ── Photo gallery dialog (app-local) ──────────────────────────────────── */
     .modal-box {
@@ -274,7 +241,7 @@
 
     /* ── Lightbox (app-local) ──────────────────────────────────────────────── */
     /* Always a near-black backdrop in every theme, so the two colors below are
-       measured against it rather than tokenised: #ccc on rgba(0,0,0,0.88) is
+       measured against it rather than tokenised (contrast): #ccc on rgba(0,0,0,0.88) is
        ~12:1 and #fff is ~19:1 (WCAG 1.4.3). */
     #lightbox { padding: 0; }
     #lightbox::backdrop { background: rgba(0,0,0,0.88); backdrop-filter: blur(6px); }
@@ -282,10 +249,10 @@
       display: block; max-width: min(1200px, calc(100vw - 2rem));
       max-height: calc(100dvh - 5rem); border-radius: 6px; object-fit: contain;
     }
-    .lightbox-caption { text-align: center; color: #ccc; font-size: 0.8rem; margin-top: 0.5rem; }
+    .lightbox-caption { text-align: center; color: #ccc; font-size: 0.8rem; margin-top: 0.5rem; } /* contrast ~12:1 on the backdrop, WCAG 1.4.3 */
     .lightbox-close {
       position: absolute; top: -2rem; right: 0; background: none; border: none;
-      color: #fff; font-size: 1.75rem; line-height: 1; cursor: pointer; padding: 0 0.25rem;
+      color: #fff; font-size: 1.75rem; line-height: 1; cursor: pointer; padding: 0 0.25rem; /* contrast ~19:1 on the backdrop */
     }
     /* Station arrows pinned to the viewport edges (fixed works inside a
        top-layer dialog). White glyph on a solid dark disc — same backdrop-only
@@ -294,7 +261,7 @@
     .lightbox-nav {
       position: fixed; top: 50%; transform: translateY(-50%);
       width: 44px; height: 44px; padding: 0; border: none; border-radius: 50%;
-      background: rgba(0,0,0,0.6); color: #fff; cursor: pointer;
+      background: rgba(0,0,0,0.6); color: #fff; cursor: pointer; /* contrast ≥5.7:1 even with a white photo under the 0.6 black disc */
       display: inline-flex; align-items: center; justify-content: center;
     }
     .lightbox-nav:hover { background: rgba(0,0,0,0.85); }
@@ -307,15 +274,11 @@
 
     /* ── Responsive ────────────────────────────────────────────────────────── */
     /* Breakpoints 1400 (labels) / 1060 (chrome) / 750 (subtitle) come from the
-       kit. The segmented direction group swaps to its <select> at the 1400
-       label edge, not 1060: kit 0.10.0's larger lockup (12/11px, ~212px wide
-       vs ~169) pushed the one-row bar off the right edge between 1061 and
-       ~1150px, and at 1061-1400 on pre-2026-09-29 dates with all seven
-       directions (verified Chromium + WebKit). */
-    @media (max-width: 1400px) {
-      #dir-group        { display: none; }
-      .dir-select-group { display: flex; }
-    }
+       kit. The kit's segmented fallback swaps the direction group to its
+       <select> at the 1400 label edge, not its default 1060 (rules above;
+       app.js passes the query): kit 0.10.0's larger lockup (~212px vs ~169)
+       pushed the one-row bar off the right edge at 1061-~1150px, and at
+       1061-1400 on pre-2026-09-29 dates with all seven directions. */
     /* This bar is control-dense: search + date stepper + time + direction +
        five buttons don't fit on one row until ~1000px even with the brand
        collapsed, so wrapping is allowed below 1060 (where the kit also tightens
@@ -343,110 +306,43 @@
        #btn-search-toggle rule — an ID selector outbids the kit's class and would
        strand the toggle hidden. */
 
-    @media (max-width: 640px) {
-      input[type="search"] { width: 150px; }
-      input[type="search"]:focus { width: 180px; }
-    }
-    /* ── RAIL MODE (app-local prototype) ───────────────────────────────────
-       Landscape phones: the navbar becomes a narrow left rail and everything
-       else moves into a slide-out drawer, so the map gets the full height —
-       Montana is ~1.75:1 and a landscape phone ~2.2:1, so the rail sits in
-       width the fit wasn't using. KEEP IN SYNC with RAIL_MQ in app.js. The
-       kit's compact query includes (max-height: 560px); this is its landscape
-       half. Candidate for the kit if a second app wants it. */
-    .rail { display: none; }
-    .nav-drawer { display: contents; }
+    /* ── Landscape rail (kit 0.10.0: .mco-navbar[data-rail] + MCO.initNavRail)
+       This app prototyped the rail (#38); the kit owns it now — the fixed 56px
+       column, body padding, the drawer's position/display/transition, and the
+       un-hiding of the lockup, labels and button text inside it. What stays
+       here is this app's own content: the rail readout and direction cycle,
+       and how its control groups stack in the drawer. Same query as
+       MCO.viewport.RAIL_MQ. */
     @media (max-height: 560px) and (orientation: landscape) {
-      body { flex-direction: row; }
-      main { min-width: 0; }
-      .mco-navbar {
-        flex-direction: column; flex-wrap: nowrap; justify-content: flex-start;
-        width: calc(56px + env(safe-area-inset-left)); height: 100dvh;
-        padding: max(0.4rem, env(safe-area-inset-top)) 0.4rem
-                 max(0.4rem, env(safe-area-inset-bottom)) max(0.4rem, env(safe-area-inset-left));
-        border-bottom: 0; border-right: 1px solid var(--border);
-      }
-      /* The brand underline becomes a right-edge stripe. */
-      .mco-navbar::after { top: 0; left: auto; right: 0; width: 2px; height: auto; }
-      .mco-navbar > .nav-divider { display: none; }
-
-      .rail {
-        display: flex; flex-direction: column; align-items: center; gap: 0.35rem;
-        min-height: 0; overflow-y: auto; scrollbar-width: none;
-      }
-      .rail .nav-btn { width: 40px; min-height: 40px; }
-      .rail-dir { font: 600 0.72rem var(--font-mono); }
+      .mco-rail .rail-dir { font: 600 0.72rem var(--font-mono); }
       .rail-readout {
         margin: 0; text-align: center; line-height: 1.25;
         font-size: 0.66rem; font-weight: 500; color: var(--text-secondary);
         white-space: nowrap;
       }
       .rail-readout span { display: block; }
-
-      /* The drawer. The navbar's backdrop-filter makes it the containing block
-         for fixed descendants, so this is positioned against the rail. */
-      .nav-drawer {
-        flex-direction: column; align-items: stretch; gap: 0.9rem;
-        position: absolute; top: 0; bottom: 0; left: 100%;
-        width: min(300px, calc(100vw - 56px - env(safe-area-inset-left)));
-        padding: max(0.75rem, env(safe-area-inset-top)) 0.9rem max(0.75rem, env(safe-area-inset-bottom));
-        overflow-y: auto; overscroll-behavior: contain;
-        background: var(--bg-surface); border-right: 1px solid var(--border);
-        box-shadow: var(--shadow);
-        /* display, not visibility: children with their own transitions (the
-           search field) would inherit a visibility change a frame late, and
-           openDrawer() could not focus into it. Slides in via @starting-style;
-           closing is instant. */
-        display: none;
-        transition: transform 0.18s ease-out, opacity 0.18s ease-out;
+      /* Undo the ≤1060 bar's row ordering (nav-meta lifted, controls given a
+         full-width row): in the drawer's column, search/date/time/direction
+         come first and flex-basis:100% would mean full height. */
+      .mco-nav-drawer .controls { order: 0; flex-basis: auto; gap: 0.75rem; }
+      .mco-nav-drawer .control-group { flex-direction: column; align-items: stretch; gap: 0.25rem; }
+      .mco-nav-drawer .date-stepper input[type="date"] { flex: 1; min-width: 0; }
+      .mco-nav-drawer .date-step-btns { flex-direction: row; gap: 4px; }
+      .mco-nav-drawer .time-select { width: 100%; }
+      /* kit-override: the search list stays inside the short viewport. */
+      .mco-nav-drawer .mco-search-list { max-height: 50dvh; }
+      .mco-nav-drawer .search-kbd { display: none; }
+      .mco-nav-drawer .nav-meta {
+        order: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;
       }
-      .nav-drawer.is-open {
-        display: flex;
-        @starting-style { transform: translateX(-12px); opacity: 0; }
-      }
-      /* The kit visually hides the lockup ≤750px; the drawer has room for it
-         (:where() in the kit keeps this override cheap — HOUSE-STYLE §3). */
-      .nav-drawer .brand {
-        position: static; width: auto; height: auto; margin: 0;
-        overflow: visible; clip: auto; white-space: normal;
-      }
-      /* Undo the ≤1060 navbar row ordering: search/date/time/direction first,
-         the action buttons after. */
-      .nav-drawer .controls { order: 0; flex-basis: auto; flex-direction: column; align-items: stretch; gap: 0.75rem; }
-      .nav-drawer .control-group { flex-direction: column; align-items: stretch; gap: 0.25rem; }
-      /* Visible labels again (the kit hides them visually ≤1400px). */
-      .mco-navbar .nav-drawer .control-label {
-        position: static; width: auto; height: auto; margin: 0;
-        overflow: visible; clip: auto;
-      }
-      .nav-drawer .date-stepper input[type="date"] { flex: 1; min-width: 0; }
-      .nav-drawer .date-step-btns { flex-direction: row; gap: 4px; }
-      .nav-drawer .time-select { width: 100%; }
-      .mco-navbar .nav-drawer .mco-search-collapse { display: flex; }
-      .nav-drawer input[type="search"],
-      .nav-drawer input[type="search"]:focus { width: 100%; }
-      .nav-drawer #search-dropdown { max-height: 50dvh; }
-      .nav-drawer .search-kbd { display: none; }
-      .nav-drawer .nav-meta {
-        order: 1; margin-left: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;
-      }
-      /* Labelled buttons in the drawer — the icons alone aren't self-explanatory. */
-      .mco-navbar .nav-drawer .btn-label { display: inline; }
-      .mco-navbar .nav-drawer .nav-btn:has(> .btn-label) { justify-content: flex-start; padding: 0.4rem 0.6rem; }
-      .mco-navbar .nav-drawer .mco-search-toggle { display: none; }
-    }
-    @media (max-height: 560px) and (orientation: landscape) and (prefers-reduced-motion: reduce) {
-      .nav-drawer { transition: none; }
     }
 
     /* WCAG 2.5.5 — touch targets for app-owned controls (kit covers its own). */
     @media (hover: none) {
-      input[type="search"] { min-height: 40px; }
       /* `height`, not `min-height`: WebKit ignores min-height on a native
          select (kit MIGRATING.md § Gotchas). The date input, the Time menu
          and the narrow-screen direction select. */
       input[type="date"], select.time-select { height: 40px; line-height: 40px; }
-      #search-dropdown li { min-height: 40px; padding: 10px 8px; }
       .lightbox-close { min-width: 44px; min-height: 44px; }
       /* The gallery's close button is a close control, so 44px (HOUSE-STYLE
          §5.5), not the 40px of its sibling arrows; and the dashboard link is a
@@ -468,17 +364,17 @@
 <!-- Skip link first (WCAG 2.4.1) — mco-web-style snippets/skip-link.html -->
 <a class="mco-skip-link" href="#main">Skip to map</a>
 
-<header id="navbar" class="mco-navbar">
+<header id="navbar" class="mco-navbar" data-rail>
   <a href="https://climate.umt.edu" target="_blank" rel="noopener noreferrer"
      class="logo-link" aria-label="Montana Climate Office">
     <img src="assets/mco-logo.png" alt="" class="logo-img" width="40" height="40">
   </a>
 
-  <!-- Landscape-phone rail (app-local prototype). display:none except in rail
-       mode (see the RAIL MODE block in the <style> and RAIL_MQ in app.js), so
-       it is out of the accessibility tree everywhere else. Next above previous,
-       like the date stepper. -->
-  <div class="rail" id="rail">
+  <!-- Landscape-phone rail (kit .mco-rail, 0.10.0). display:none except at
+       MCO.viewport.RAIL_MQ, so it is out of the accessibility tree everywhere
+       else. Menu, then the hot controls: next day above previous (like the
+       date stepper), a date/time readout, and the direction cycle. -->
+  <div class="mco-rail" id="rail">
     <button type="button" class="nav-btn icon-only" id="btn-menu"
             aria-expanded="false" aria-controls="nav-drawer" aria-label="Map controls">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke-width="2"
@@ -505,28 +401,24 @@
 
   <div class="nav-divider" aria-hidden="true"></div>
 
-  <!-- display:contents everywhere but rail mode, so the navbar lays out exactly
-       as if this wrapper weren't here; in rail mode it is the slide-out drawer. -->
-  <div class="nav-drawer" id="nav-drawer">
+  <!-- Kit .mco-nav-drawer: display:contents everywhere but rail mode, so the
+       navbar lays out exactly as if this wrapper weren't here; in rail mode it
+       is the drawer beside the rail (MCO.initNavRail). -->
+  <div class="mco-nav-drawer" id="nav-drawer">
   <div class="brand">
     <h1 class="brand-title">Mesonet Photo Explorer</h1>
     <span class="brand-subtitle">A service of the Montana Climate Office</span>
   </div>
 
   <div class="controls">
-    <!-- Search a station. Press / anywhere to jump here. Custom listbox
-         dropdown (not <datalist>) so the popup is fully themed. -->
-    <div class="search-wrap mco-search-collapse" id="search-wrap">
+    <!-- Search a station (kit .mco-search + MCO.initSearchBox, which wires the
+         combobox/listbox roles and aria-*). Press / anywhere to jump here. -->
+    <div class="mco-search mco-search-collapse" id="search-wrap">
+      <span class="mco-search-icon" aria-hidden="true"></span>
       <label for="search-input" class="sr-only">Search stations</label>
-      <input type="search" id="search-input"
-             role="combobox" aria-autocomplete="list" aria-haspopup="listbox"
-             aria-controls="search-dropdown" aria-expanded="false"
-             placeholder="Search stations…" autocomplete="off">
+      <input type="search" id="search-input" class="mco-search-input" placeholder="Search stations…">
       <kbd class="search-kbd" aria-hidden="true">/</kbd>
-      <!-- Deliberate WAI-ARIA combobox: native <select>/<datalist> popups are
-           unstylable Chrome UI and can't be themed. -->
-      <!-- [html-validate-disable-next prefer-native-element] -->
-      <ul id="search-dropdown" role="listbox" hidden></ul>
+      <div class="mco-search-list" id="search-dropdown" hidden></div>
     </div>
 
     <div class="control-group">
@@ -567,7 +459,7 @@
     </div>
     <div class="control-group dir-select-group">
       <label class="control-label" for="dir-select">Direction</label>
-      <select class="time-select dir-select" id="dir-select" aria-label="Camera direction"></select>
+      <select class="time-select dir-select" id="dir-select" aria-label="Camera direction" hidden></select>
     </div>
   </div>
 
@@ -624,6 +516,11 @@
         <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
         <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
       </svg>
+      <!-- High contrast is the third theme in the cycle (kit 0.10.0). -->
+      <svg id="icon-contrast" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
+           aria-hidden="true" style="display:none">
+        <circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>
+      </svg>
     </button>
     <button type="button" class="nav-btn mco-btn-info" id="btn-info" aria-label="About this explorer">?</button>
   </div>
@@ -635,21 +532,17 @@
 <div class="mco-scrim" id="rail-scrim" hidden></div>
 
 <main id="main" tabindex="-1">
+  <!-- The sr-only table twin of the mosaic (MCO.srTable, from app.js) is
+       appended to <main> after this. -->
   <div id="map-container">
     <div id="map" role="application"
-         aria-label="Map of Montana Mesonet weather stations. Click a station's photo to view its gallery."></div>
+         aria-label="Map of Montana Mesonet weather stations. Click a station's photo to view its gallery. The data is in the table that follows."></div>
   </div>
 </main>
 
-<!-- Screen-reader table twin of the WebGL photo mosaic (HOUSE-STYLE §5.2);
-     rebuilt by app.js whenever the mosaic is. -->
-<section class="sr-only" aria-label="Station photo data">
-  <table id="sr-photo-table"></table>
-</section>
-
 <!-- Tooltip is purely visual: anchored to the cursor with no focusable trigger,
-     so it is decoration for AT. The live region created by app.js
-     (MCO.createLiveRegion) carries the same information. -->
+     so it is decoration for AT. The kit announcer (MCO.announce, from app.js)
+     carries the same information. -->
 <div id="tooltip" class="mco-tooltip" aria-hidden="true"></div>
 
 <dialog id="info-modal" class="mco-modal" aria-labelledby="info-modal-title">
@@ -763,10 +656,10 @@
 
 <!-- mco-web-style (window.MCO / MCO.map). MapLibre has no script tag any
      more: mco-map.js imports it on demand (MCO.map.loadMapLibre). -->
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/core/mco-core.js"
-        integrity="sha384-b4r3+tK/yiZ4TNEllSsbDX3qW0NhcHDsF2iPzUWunUc2vNf1qlq9t9qo2YWgoZiK"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/core/mco-core.js"
+        integrity="sha384-hwEGm+GrEB8L4Msos8t4L3tzlXRPiHR11CFgFn1jYSvD4izhSHQJIodHgm4ZuRf8"
         crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/map/mco-map.js"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/map/mco-map.js"
         integrity="sha384-tmDqtqi4yYiDHOxkZikwzXF3Lpkb63b0Tu6K7jeCpU9gJkPB2GbpFHLasGHka6zP"
         crossorigin="anonymous"></script>
 <script src="app.js"></script>

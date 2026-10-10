@@ -40,6 +40,33 @@ export default {
   dialogOpener: '#btn-info',
   shortcuts: [{ key: '/', effect: () => document.activeElement && document.activeElement.id === 'search-input' }],
   probes: async ({ open, check }) => {
+    // Drill-down history (HOUSE-STYLE §4): opening the gallery pushes an entry,
+    // so Back closes it (focus back on its opener) and Forward reopens it; the
+    // dialog's own close steps Back over the entry rather than leaving a
+    // second one.
+    {
+      const { page, close } = await open('', { ready: mosaicReady });
+      const st = () => page.evaluate(() => ({
+        open: document.getElementById('modal').open, focus: document.activeElement && document.activeElement.id,
+        station: new URLSearchParams(location.search).get('station'), len: history.length,
+      }));
+      await page.keyboard.press('/');
+      await page.keyboard.type('Bozeman');
+      await page.keyboard.press('Enter');
+      await page.waitForFunction(() => document.getElementById('modal').open, null, { timeout: 20000 }).catch(() => {});
+      const opened = await st();
+      check('gallery open pushes ?station=', opened.open && opened.station === 'acebozem', JSON.stringify(opened));
+      await page.goBack({ waitUntil: 'commit' }).catch(() => {}); await page.waitForTimeout(600);
+      const back = await st();
+      check('Back closes the gallery, focus returns to its opener', !back.open && !back.station && back.focus === 'search-input', JSON.stringify(back));
+      await page.goForward({ waitUntil: 'commit' }).catch(() => {}); await page.waitForTimeout(800);
+      const fwd = await st();
+      check('Forward reopens the gallery', fwd.open && fwd.station === 'acebozem', JSON.stringify(fwd));
+      await page.click('#modal-close'); await page.waitForTimeout(600);
+      const x = await st();
+      check('× closes without a second pop or a new entry', !x.open && !x.station && x.len === fwd.len, JSON.stringify(x));
+      await close();
+    }
     // The social-preview contract (scripts/generate_preview.py): ?export=light&dir=W
     // clicks #btn-export after 4 s, which downloads a PNG.
     const { page, close } = await open('?export=light&dir=W', { ready: () => true, settleMs: 0 });

@@ -7,8 +7,9 @@
 
    App-owned (deliberately NOT in the kit — MIGRATING.md § kit-deferred):
    the photo-mosaic machinery (cover-crop + LRU cache, one image source per
-   station cell), the gallery/lightbox dialogs, the date stepper, the direction
-   segments + <select> fallback, updateSocialMeta, and the branded PNG export.
+   station cell), the gallery/lightbox dialogs and the branded PNG export.
+   Since kit 0.9.0 the date stepper (MCO.initStepper) and the direction
+   segments' <select> fallback (MCO.initSegmentedFallback) are the kit's.
    ========================================================================== */
 (function () {
 'use strict';
@@ -24,7 +25,12 @@ const STATIONS_META   = "https://mesonet2.climate.umt.edu/api/stations?type=json
 const STATUS_META     = "https://mesonet2.climate.umt.edu/api/stations/status?type=json";
 const GRID_URL        = "grid.geojson";
 const DASH_URL        = (s) => `https://mesonet.climate.umt.edu/dash/${s}`;
-const LOGO_URL        = "assets/mco-logo.png";   // vendored — never hot-link climate.umt.edu (HOUSE-STYLE §1)
+// The export's wordmark comes from the pinned kit tag (HOUSE-STYLE §1 Logo:
+// exports draw from the kit, never climate.umt.edu), loaded with CORS so the
+// canvas stays exportable. KEEP the version in step with the kit tags in
+// index.html. -on-light / -on-dark is picked by the card's own background.
+const KIT_ASSETS      = "https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/assets/";
+const WORDMARK_URL    = (onLight) => `${KIT_ASSETS}mco-wordmark-on-${onLight ? 'light' : 'dark'}.svg`;
 
 const DIR_ORDER  = ["N", "S", "E", "W", "SNOW", "NS", "SS"];
 const DIR_LABELS = { N: "North", S: "South", E: "East", W: "West", SNOW: "Snow", NS: "North Sky", SS: "South Sky" };
@@ -78,18 +84,8 @@ const EXPORT_SCALE = 2;   // → 2800×1400 output, independent of the device's 
 const CROP_SIZE = 320;
 const BLANK_IMG = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 
-const cssVar = (n, fallback) =>
-  getComputedStyle(document.documentElement).getPropertyValue(n).trim() || fallback;
 const once = (m, ev) => new Promise((r) => m.once(ev, r));
 
-// Local-getter date shift. Deliberately NOT MCO.shiftDate: that reads its
-// result back with toISOString() (UTC), which lands a day off for viewers in
-// UTC+13/+14 and UTC−12. Kit defect reported separately.
-function shiftDate(dateStr, deltaDays) {
-  const d = new Date(dateStr + "T12:00:00");
-  d.setDate(d.getDate() + deltaDays);
-  return `${d.getFullYear()}-${MCO.pad2(d.getMonth() + 1)}-${MCO.pad2(d.getDate())}`;
-}
 
 // ── DOM refs ────────────────────────────────────────────────────────────────
 const mainEl         = document.getElementById("main");
@@ -101,7 +97,6 @@ const searchDropdown = document.getElementById("search-dropdown");
 const infoModal      = document.getElementById("info-modal");
 const modal          = document.getElementById("modal");
 const lightbox       = document.getElementById("lightbox");
-const srTableEl      = document.getElementById("sr-photo-table");
 
 // Which Mountain wall-clock times the Time <select> offers is decided per
 // selected date from the schedule (slotsForDate, below). The static <option>s
@@ -111,8 +106,8 @@ const srTableEl      = document.getElementById("sr-photo-table");
 const _placeholderSlots = [...timeInput.options].map(o => o.value);
 
 // Screen-reader announcements for what the WebGL mosaic shows (HOUSE-STYLE
-// §5.1) — the hidden-table twin below carries the detail.
-const live = MCO.createLiveRegion();
+// §5.1) go through the kit's one page announcer, MCO.announce (polite) — the
+// hidden-table twin below carries the detail.
 
 // ── State ─────────────────────────────────────────────────────────────────────
 // Parsed schedule.json. Period bounds are epoch ms (`until` Infinity = current);
@@ -142,6 +137,7 @@ let _refreshToken = 0;                // guards against stale async photo loads 
 let _hoveredId = null;
 let _photoState = new Map();          // station → true|false (has a photo for the current selection)
 let _lastAnnounced = '';
+let _dateSteppers = [];               // MCO.initStepper handles; refresh() after any date change (updateUrl)
 const _cropCache = new Map();         // thumb URL → cover-cropped data URL
 
 // ── URL state ─────────────────────────────────────────────────────────────────
@@ -229,7 +225,7 @@ function slotsForDate(dateStr) {
 function lastSlotBefore(dateStr) {
   let date = dateStr;
   for (let i = 0; i < SLOT_WALK_MAX_DAYS; i++) {
-    date = shiftDate(date, -1);
+    date = MCO.shiftDate(date, -1);
     if (date < PHOTOS_MIN_DATE) break;
     const slots = slotsForDate(date);
     if (slots.length) return { date, time: slots[slots.length - 1] };
@@ -315,7 +311,7 @@ function rollMessage({ from, to, reason }) {
     ? `${slotLabel(from)} isn't available yet — showing ${slotLabel(to)}.`
     : `Time adjusted to ${slotLabel(to)} — ${slotLabel(from)} isn't scheduled on ${MCO.formatDateStr(dateInput.value)}.`;
 }
-// Announce a batched time move (hold-to-repeat collects them; see stepDate).
+// Announce a batched time move (a hold-to-repeat run collects them; see stepDate).
 function flushRoll() {
   if (!_pendingRoll) return;
   if (!_exportParam) MCO.showToast(rollMessage(_pendingRoll), 5000);
@@ -484,6 +480,13 @@ function initMap() {
   MCO.map.addNavigation(map);                  // top-right, no compass
   MCO.map.addFitControl(map);                  // fused into the zoom group
   zoomFloor = MCO.map.installZoomFloor(map);   // snap-back + resize refit
+  // A basemap style that 404s or hangs never fires 'load': the kit retries
+  // it, then falls back to a blank style and shows a notice with Retry.
+  MCO.map.watchBasemap(map, { styleUrl: MCO.map.cartoStyleUrl });
+  // Every style.load — a theme switch, a basemap retry, the blank fallback —
+  // wipes our sources and layers, so they are re-added each time, not once.
+  // The first one precedes the data load; onMapLoad adds them then.
+  map.on('style.load', () => { if (_mapReady) addCustomLayers(); });
   map.on('load', onMapLoad);
   map.on('moveend', () => { if (_mapReady) updateUrl(); });
   wireMapPointer();
@@ -501,19 +504,23 @@ function onMapLibraryFail(err) {
 }
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
+// The toggle only flips the theme and mirrors it into the URL; the map
+// re-styles from the kit's mco:themechange event (0.9.0), so any future theme
+// source re-styles it too. setStyle() wipes our sources and layers; they
+// return on style.load (initMap). Before the library has arrived there is no
+// map yet, and initMap reads the theme when it builds it.
 MCO.initThemeToggle({
   button: document.getElementById('btn-theme'),
   iconSun: document.getElementById('icon-sun'),
   iconMoon: document.getElementById('icon-moon'),
-  onChange: () => {
-    // setStyle() wipes our sources/layers — re-add them once the new basemap loads.
-    // Before the library has arrived there is no map yet; initMap reads the
-    // theme when it builds it.
-    if (!map) { updateUrl(); return; }
-    map.setStyle(MCO.map.cartoStyleUrl());
-    map.once('style.load', () => { addCustomLayers(); });
-    updateUrl();
-  },
+  // 3-state (kit 0.10.0): dark → light → high contrast, so high contrast is
+  // reachable from the page, not only by ?theme=. The label names the next.
+  cycle: true,
+  iconContrast: document.getElementById('icon-contrast'),
+  onChange: () => updateUrl(),
+});
+document.addEventListener('mco:themechange', () => {
+  if (map) map.setStyle(MCO.map.cartoStyleUrl());
 });
 
 // Walk back from the computed latest slot to the newest one that actually has
@@ -577,8 +584,9 @@ async function onMapLoad() {
 
   // Deep-link to ?station=… , else publish a clean initial URL.
   if (_initStation && _featureByStation.has(_initStation)) {
-    if (urlParams.has('lng')) openModalByStation(_initStation);
-    else                      flyToAndOpen(_initStation);
+    // The entry already names the station, so these replace, never push.
+    if (urlParams.has('lng')) openModalByStation(_initStation, null, { push: false });
+    else                      flyToAndOpen(_initStation, null, { push: false });
   } else {
     updateUrl();
   }
@@ -724,6 +732,26 @@ function syncDirections() {
 }
 
 // ── Direction controls (segmented buttons + narrow-screen <select>) ───────────
+// The two views of one choice are kept in step by the kit's
+// MCO.initSegmentedFallback: each mirrors the other, [hidden] goes on the one
+// not in use at the 1400px ladder edge, and focus crosses over when a resize
+// hides the focused one. The app only rebuilds the options per slot.
+// A segment's visible text is an abbreviation ("NS"); WCAG 2.5.3 wants the
+// accessible name to contain it, so the name starts with it whenever the full
+// label doesn't ("NS, North Sky"; "West" already starts with "W").
+function segText(dir) { return dir === "SNOW" ? "Snow" : dir; }
+function segName(dir) {
+  const text = segText(dir), full = dirLabel(dir);
+  return full.toLowerCase().startsWith(text.toLowerCase()) ? full : `${text}, ${full}`;
+}
+const dirFallback = MCO.initSegmentedFallback({
+  group: document.getElementById("dir-btns"),
+  select: document.getElementById("dir-select"),
+  // The 1400 label edge, not the kit's default 1060: this bar no longer fits
+  // its segments below it with the 0.10.0 lockup (index.html, Responsive).
+  mq: '(max-width: 1400px)',
+  onChange: (dir) => setDirection(dir),
+});
 function buildDirectionControls(allDirs) {
   const dirBtnsEl   = document.getElementById("dir-btns");
   const dirSelectEl = document.getElementById("dir-select");
@@ -733,10 +761,9 @@ function buildDirectionControls(allDirs) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "nav-btn seg-btn";
-    btn.dataset.dir = dir;
-    btn.textContent = dir === "SNOW" ? "Snow" : dir;
-    // The visible glyph is an abbreviation — name the button properly for AT.
-    btn.setAttribute("aria-label", dirLabel(dir));
+    btn.dataset.value = dir;
+    btn.textContent = segText(dir);
+    btn.setAttribute("aria-label", segName(dir));
     btn.setAttribute("aria-pressed", dir === currentDir ? "true" : "false");
     dirBtnsEl.append(btn);
 
@@ -749,10 +776,7 @@ function buildDirectionControls(allDirs) {
   updateRail();
 }
 function reflectDirection() {
-  document.querySelectorAll("#dir-btns .seg-btn").forEach(b =>
-    b.setAttribute("aria-pressed", b.dataset.dir === currentDir ? "true" : "false"));
-  const ds = document.getElementById("dir-select");
-  if (ds) ds.value = currentDir;
+  dirFallback.set(currentDir);
   updateRail();
 }
 function setDirection(dir) {
@@ -761,11 +785,6 @@ function setDirection(dir) {
   updateUrl();
   refreshMapImages();
 }
-document.getElementById("dir-btns").addEventListener("click", (e) => {
-  const btn = e.target.closest(".seg-btn");
-  if (btn) setDirection(btn.dataset.dir);
-});
-document.getElementById("dir-select").addEventListener("change", (e) => setDirection(e.target.value));
 // Rail: one button steps through the directions the selected slot offers.
 document.getElementById("btn-rail-dir").addEventListener("click", () => {
   const dirs = dirsForSlot(getSelectedDateTime());
@@ -789,7 +808,7 @@ function addOverlaySource(id, url, cachedFC, save) {
 }
 
 // Add all custom sources + layers. Called on first load and re-called on every
-// setStyle() (theme toggle), which wipes them. Stack, bottom → top:
+// style.load (theme toggle, basemap retry or fallback), which wipes them. Stack, bottom → top:
 // state frame → photo rasters → boundary overlays → cell borders/hit → labels.
 //
 // kit-override: no MCO.map.addHillshade here — the photo mosaic is the figure
@@ -837,10 +856,14 @@ function addCustomLayers() {
                  layout: { visibility: overlayVis }, paint: paints.tribalLine });
 
   addLayerOnce({ id: 'cells-outline', type: 'line', source: 'cells',
-                 paint: { 'line-color': cssVar('--border', '#3a4558'), 'line-width': 0.8, 'line-opacity': 0.9 } });
+                 paint: { 'line-color': MCO.cssVar('--border'), 'line-width': 0.8, 'line-opacity': 0.9 } });
   // Transparent fill on top for hit-testing + hover highlight (feature-state).
+  // The highlight is the kit's selection color, read at paint time from
+  // MCO.map.selectionPaint() (--selection-ring). That paint is a circle ring
+  // and this is a fill, so only its color is taken. The old '#5aaee8'
+  // fallback was the dark-theme value (wrong on light).
   addLayerOnce({ id: 'cells-fill', type: 'fill', source: 'cells',
-                 paint: { 'fill-color': cssVar('--selection-ring', '#5aaee8'),
+                 paint: { 'fill-color': MCO.map.selectionPaint()['circle-stroke-color'],
                           'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.32, 0] } });
 
   // Reservation labels on top, toggled with the rest of the boundary overlays.
@@ -946,26 +969,27 @@ function refreshMapImages() {
 }
 
 // Screen-reader table twin of the WebGL photo mosaic (HOUSE-STYLE §5.2): one
-// row per drawn grid cell, rebuilt whenever the mosaic is.
+// row per drawn grid cell, rebuilt whenever the mosaic is. The kit's
+// MCO.srTable owns the markup (an .sr-only wrapper inside <main>, after the
+// map, a row-count caption, textContent-only cells, and a rebuild only when a
+// row changed); the id stays for anything that hooks the table.
+const srTwin = MCO.srTable({
+  caption: 'Montana Mesonet station photos currently shown on the map',
+  columns: [
+    { key: 'station', label: 'Station', rowHeader: true, value: (f) => `${f.name} (${f.station})` },
+    { key: 'dir', label: 'Camera direction', value: () => dirLabel(currentDir) },
+    { key: 'photo', label: 'Photo (Mountain Time)', value: (f) => {
+        const has = _photoState.get(f.station);   // null while its load is in flight
+        return has === null ? 'Loading…' : has ? formatDisplayTimestamp(getSelectedDateTime()) : 'No photo';
+      } },
+  ],
+  rowKey: (f) => f.station,
+});
+srTwin.element.querySelector('table').id = 'sr-photo-table';
 function renderSRTable() {
-  if (!srTableEl) return;
-  const stamp = formatDisplayTimestamp(getSelectedDateTime());
-  const label = dirLabel(currentDir);
-  const shown = _activeFeatures
+  srTwin.render(_activeFeatures
     .filter(f => _photoState.has(f.station))
-    .sort((a, b) => a.name.localeCompare(b.name));
-  const rows = shown.map((f) => {
-    const has = _photoState.get(f.station);   // null while its load is in flight
-    const cell = has === null ? 'Loading…' : has ? MCO.escapeHTML(stamp) : 'No photo';
-    return `<tr><th scope="row">${MCO.escapeHTML(f.name)} (${MCO.escapeHTML(f.station)})</th>` +
-      `<td>${MCO.escapeHTML(label)}</td>` +
-      `<td>${cell}</td></tr>`;
-  }).join('');
-  srTableEl.innerHTML =
-    '<caption>Montana Mesonet station photos currently shown on the map</caption>' +
-    '<thead><tr><th scope="col">Station</th><th scope="col">Camera direction</th>' +
-    '<th scope="col">Photo (Mountain Time)</th></tr></thead>' +
-    `<tbody>${rows}</tbody>`;
+    .sort((a, b) => a.name.localeCompare(b.name)));
 }
 
 // Announce the mosaic's contents. Deduped against the last announcement so a
@@ -979,7 +1003,7 @@ function announceMosaic() {
       `for ${formatDisplayTimestamp(getSelectedDateTime())}.`;
   if (msg === _lastAnnounced) return;
   _lastAnnounced = msg;
-  live.announce(msg);
+  MCO.announce(msg);
 }
 
 // ── Hover + click interaction ─────────────────────────────────────────────────
@@ -1019,137 +1043,57 @@ function showTooltip(ev, text) {
 function hideTooltip() { tooltipEl.classList.remove("visible"); }
 
 // ── Search ────────────────────────────────────────────────────────────────────
-// App-local by design: the kit has deliberately not absorbed the search
-// combobox yet (MIGRATING.md § kit-deferred). The collapse-to-icon behavior
-// below is likewise app-local — a kit candidate if a second property wants it
-// (admission rule: >= 2 MCO properties).
-let _activeSearchIndex = -1;
-
-// Collapse-to-icon + overlay is the kit's component as of v0.5.0, collapsing at
-// the compact edge (≤640px) since v0.6.0. (This app
-// prototyped it; mesonet-status became the second consumer, meeting the kit's
-// admission rule). The kit owns the mechanics — open/close, focus in and out,
-// outside-dismiss, and clearing state when the viewport widens. This app keeps
-// what only it knows: Esc precedence against its own suggestions dropdown, the
-// `/` shortcut, and which control the gallery should treat as its opener.
+// The combobox is the kit's MCO.initSearchBox (0.8.0): APG keyboard model,
+// accent- and typo-tolerant ranking (MCO.searchModel), a disabled "No
+// matches" option, polite result counts, and Esc that closes, then clears.
+// The collapse-to-icon + overlay at ≤640px is the kit's MCO.initSearchCollapse
+// (this app prototyped it). This app keeps what only it knows: the `/`
+// shortcut, Esc closing the overlay once the field is empty, and which control
+// the gallery should treat as its opener.
 const btnSearchToggle = document.getElementById('btn-search-toggle');
+const searchBox = MCO.initSearchBox({
+  input: searchInput,
+  listbox: searchDropdown,
+  items: () => _stationsList.map(s => ({ id: s.station, label: s.name })),
+  onSelect: selectStation,
+  label: 'Stations',
+  limit: SEARCH_MAX_RESULTS,
+});
 const searchCollapse = MCO.initSearchCollapse({
   wrap: document.getElementById('search-wrap'),
   toggle: btnSearchToggle,
   input: searchInput,
-  onClose: hideSearchDropdown,
+  onClose: () => searchBox.close(),
+});
+// The kit handles (and stops) the Esc that closes the list or clears the
+// text; the one it passes through closes the overlay, one step at a time.
+searchInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !e.defaultPrevented && searchCollapse.isOpen()) {
+    e.preventDefault();
+    searchCollapse.close();
+  }
 });
 
-function matchScore(s, q) {
-  const n = s.name.toLowerCase(), id = s.station.toLowerCase();
-  if (n === q || id === q) return 0;
-  if (n.startsWith(q))     return 1;
-  if (id.startsWith(q))    return 2;
-  if (n.includes(q))       return 3;
-  if (id.includes(q))      return 4;
-  return Infinity;
-}
-function showSearchDropdown(rawQuery) {
-  const q = rawQuery.trim().toLowerCase();
-  if (!q) { hideSearchDropdown(); return; }
-  const matches = _stationsList
-    .map(s => ({ s, score: matchScore(s, q) }))
-    .filter(m => m.score < Infinity)
-    .sort((a, b) => a.score - b.score || a.s.name.localeCompare(b.s.name))
-    .slice(0, SEARCH_MAX_RESULTS)
-    .map(m => m.s);
-  searchDropdown.innerHTML = '';
-  if (matches.length === 0) {
-    const li = document.createElement('li');
-    li.className = 'empty';
-    li.setAttribute('aria-disabled', 'true');
-    li.textContent = `No stations match "${rawQuery.trim()}"`;
-    searchDropdown.appendChild(li);
-    searchDropdown.hidden = false;
-    searchInput.setAttribute('aria-expanded', 'true');
-    _activeSearchIndex = -1;
-    return;
-  }
-  for (const s of matches) {
-    const li = document.createElement('li');
-    li.setAttribute('role', 'option');
-    li.dataset.stationId = s.station;
-    li.id = `search-opt-${s.station}`;
-    const name = document.createElement('span');
-    name.className = 'search-name';
-    name.textContent = s.name;
-    const meta = document.createElement('span');
-    meta.className = 'search-meta';
-    meta.textContent = s.station;
-    li.append(name, meta);
-    li.addEventListener('mousedown', (e) => { e.preventDefault(); selectStation(s.station); });
-    searchDropdown.appendChild(li);
-  }
-  searchDropdown.hidden = false;
-  searchInput.setAttribute('aria-expanded', 'true');
-  _activeSearchIndex = -1;
-  searchInput.removeAttribute('aria-activedescendant');
-}
-function hideSearchDropdown() {
-  searchDropdown.hidden = true;
-  searchInput.setAttribute('aria-expanded', 'false');
-  _activeSearchIndex = -1;
-  searchInput.removeAttribute('aria-activedescendant');
-}
 function selectStation(stationId) {
-  hideSearchDropdown();
-  searchInput.value = '';
   // Whichever control the user came from becomes the gallery's opener, so
   // closing the dialog returns them there. In collapsed mode that's the toggle
   // — the field itself is display:none once the overlay closes, and focusing a
   // hidden element silently drops focus to <body>.
   // In rail mode the field is in the drawer, which closes here — so the menu
   // button, which stays on screen, takes focus back when the gallery closes.
-  const opener = RAIL_MQ.matches ? btnMenu
+  const opener = navRail.isRail() ? btnMenu
                : searchCollapse.isCollapsed() ? btnSearchToggle : searchInput;
   searchCollapse.close({ restoreFocus: false });
-  closeDrawer({ restoreFocus: false });
+  navRail.close({ restoreFocus: false });
   flyToAndOpen(stationId, opener);
 }
-function setActiveSearchItem(idx) {
-  const items = searchDropdown.querySelectorAll('li');
-  if (!items.length) return;
-  if (idx < 0) idx = items.length - 1;
-  if (idx >= items.length) idx = 0;
-  _activeSearchIndex = idx;
-  items.forEach((it, i) => it.classList.toggle('active', i === idx));
-  items[idx].scrollIntoView({ block: 'nearest' });
-  searchInput.setAttribute('aria-activedescendant', items[idx].id);
-}
-searchInput.addEventListener('input', () => showSearchDropdown(searchInput.value));
-searchInput.addEventListener('focus', () => { if (searchInput.value) showSearchDropdown(searchInput.value); });
-searchInput.addEventListener('blur',  () => setTimeout(hideSearchDropdown, 120));
-searchInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
-    // Esc closes the dropdown first, then the overlay — one step at a time.
-    if (!searchDropdown.hidden) { e.preventDefault(); searchInput.value = ''; hideSearchDropdown(); return; }
-    if (searchCollapse.isOpen()) { e.preventDefault(); searchCollapse.close(); return; }
-    searchInput.value = '';
-    return;
-  }
-  if (searchDropdown.hidden) return;
-  const items = searchDropdown.querySelectorAll('li');
-  if (!items.length) return;
-  if (e.key === 'ArrowDown') { e.preventDefault(); setActiveSearchItem(_activeSearchIndex + 1); }
-  else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveSearchItem(_activeSearchIndex - 1); }
-  else if (e.key === 'Enter') {
-    e.preventDefault();
-    const idx = _activeSearchIndex >= 0 ? _activeSearchIndex : 0;
-    if (items[idx].dataset.stationId) selectStation(items[idx].dataset.stationId);
-  }
-});
 
-function flyToAndOpen(stationId, opener) {
+function flyToAndOpen(stationId, opener, opts) {
   const f = _featureByStation.get(stationId);
   if (!f) { MCO.showToast('Station not found'); return; }
   map.flyTo({ center: f.centroid, zoom: SEARCH_FLY_ZOOM, speed: SEARCH_FLY_SPEED,
               animate: !MCO.reducedMotion() });
-  map.once('moveend', () => openModalByStation(stationId, opener));
+  map.once('moveend', () => openModalByStation(stationId, opener, opts));
 }
 
 // ── Photo gallery modal + lightbox ────────────────────────────────────────────
@@ -1194,7 +1138,7 @@ let _galleryOpener = null;
 // Fill the gallery for a station. Runs at open and on every step; it owns the
 // selected-station state and mirrors it into the URL, so a reload lands on the
 // station the user stepped to. Returns the photo count for the announcement.
-function renderGallery(stationId) {
+function renderGallery(stationId, { writeUrl = true } = {}) {
   const f = _featureByStation.get(stationId);
   if (!f) return 0;
   const dtStr = getSelectedDateTime();
@@ -1252,17 +1196,24 @@ function renderGallery(stationId) {
   });
 
   _selectedStation = stationId;
-  updateUrl();
+  if (writeUrl) updateUrl();
   return validDirs.length;
 }
-function openModalByStation(stationId, opener) {
+// Opening the gallery from the map or search is drill-down (HOUSE-STYLE §4):
+// it PUSHES a history entry, marked {mcoDetail}, so Back closes it and
+// Forward reopens it. A deep link and a Forward replay pass push:false — their
+// entry already names the station. Station steps inside the gallery or
+// lightbox replace (renderGallery → updateUrl), so stepping never floods the
+// history.
+function openModalByStation(stationId, opener, { push = true } = {}) {
   const f = _featureByStation.get(stationId);
   if (!f) return;
-  const n = renderGallery(stationId);
+  const n = renderGallery(stationId, { writeUrl: false });
+  updateUrl(push ? { push: true, state: { mcoDetail: stationId } } : {});
   _galleryOpener = opener || document.activeElement;
   modal.showModal();
   document.getElementById("modal-close").focus();
-  live.announce(n
+  MCO.announce(n
     ? `Photo gallery for ${f.name} opened, ${n} photos.`
     : `Photo gallery for ${f.name} opened, no photos for this date.`);
 }
@@ -1271,16 +1222,38 @@ function stepGalleryStation(delta) {
   const r = stepIn(galleryStations(getSelectedDateTime()), _selectedStation, delta);
   if (!r) return;
   const n = renderGallery(r.id);
-  live.announce(`Photo gallery for ${_featureByStation.get(r.id).name}, ${n} photos.${stepNote(r)}`);
+  MCO.announce(`Photo gallery for ${_featureByStation.get(r.id).name}, ${n} photos.${stepNote(r)}`);
 }
 // One close path for the button, Esc and backdrop click alike.
 // The map deliberately never moves for a station step, not even on close —
 // the user is browsing photos, not the map.
+// Closing: if this gallery pushed its entry, step Back over it, so the
+// dialog's own close (×, Esc, backdrop) and the browser's Back land on the
+// same entry and the history never holds two "gallery closed" entries in a
+// row; Forward reopens the gallery either way. When Back itself closed it
+// (_closingFromHistory), the URL is already right and nothing is popped again.
+let _closingFromHistory = false;
 modal.addEventListener("close", () => {
   _selectedStation = null;
-  updateUrl();
+  if (_closingFromHistory) _closingFromHistory = false;
+  else if (history.state && history.state.mcoDetail) history.back();
+  else updateUrl();
   restoreFocus(_galleryOpener);
   _galleryOpener = null;
+});
+// Back / Forward (MCO.onUrlState): the only pushed entries are gallery
+// openings, so all a history move does here is close or (re)open the gallery.
+MCO.onUrlState((params) => {
+  const st = (params.get('station') || '').toLowerCase();
+  if (st && _featureByStation.has(st)) {
+    if (!modal.open) openModalByStation(st, null, { push: false });
+    else if (st !== _selectedStation) renderGallery(st, { writeUrl: false });
+  } else if (modal.open) {
+    _closingFromHistory = true;
+    _galleryStale = false;   // no re-render (and so no URL write) on the way out
+    if (lightbox.open) lightbox.close();
+    modal.close();
+  }
 });
 document.getElementById("modal-close").addEventListener("click", () => modal.close());
 modal.addEventListener("click", (e) => { if (e.target === modal) modal.close(); });
@@ -1318,7 +1291,7 @@ function stepLightboxStation(delta) {
   _selectedStation = r.id;
   _galleryStale    = true;
   updateUrl();
-  live.announce(`${caption}.${stepNote(r)}`);
+  MCO.announce(`${caption}.${stepNote(r)}`);
 }
 lightbox.addEventListener("close", () => {
   lightboxImg.src = BLANK_IMG;   // not "" — that re-requests the page itself
@@ -1423,42 +1396,49 @@ function clampDate(wanted = _wantedTime) {
   // while wanting noon re-resolves to 3 PM every day, but says so once.
   return moved && time !== before ? { from: wanted, to: time, reason } : null;
 }
-function stepDate(delta) {
-  const newDate = shiftDate(dateInput.value, delta);
-  if (delta < 0 && dateInput.min && newDate < dateInput.min) { MCO.showToast("Already at the earliest available date."); return false; }
-  if (delta > 0 && newDate > computeMaxTimestep().date)       { MCO.showToast("Already at the most recent available date."); return false; }
-  dateInput.value = newDate;
-  _pendingRoll = clampDate() || _pendingRoll;
-  updateUrl();
-  return true;
-}
-let _holdTimer = null, _holdInterval = null;
-function startHold(delta) {
-  if (!stepDate(delta)) return;
-  _holdTimer = setTimeout(() => {
-    _holdInterval = setInterval(() => { if (!stepDate(delta)) stopHold(); }, 120);
-  }, 450);
-}
-function stopHold() {
-  if (_holdTimer === null && _holdInterval === null) return;
-  clearTimeout(_holdTimer); clearInterval(_holdInterval);
-  _holdTimer = null; _holdInterval = null;
+// Day steppers: the navbar's ▲/▼ and the landscape rail's pair, both on the
+// kit's MCO.initStepper (click and Enter/Space step once, a held pointer
+// repeats, the buttons disable at the date bounds). The kit calls onStep per
+// step; the mosaic refresh and any time-roll toast wait until stepping stops,
+// so a hold-to-repeat run paints and speaks once, at the end: on pointer
+// release for a press or hold, or after a short pause for keyboard steps
+// (key auto-repeat). A refresh mid-hold would starve the kit's repeat timer —
+// it decodes and crops ~150 photos on the main thread.
+const STEP_SETTLE_MS = 250;
+let _stepSettle = null, _stepPending = false, _pointerHeld = false;
+function settleSteps() {
+  clearTimeout(_stepSettle); _stepSettle = null;
+  if (!_stepPending) return;
+  _stepPending = false;
   flushRoll();
   refreshMapImages();
 }
-// The navbar stepper and the landscape rail's day buttons share one wiring.
-function wireDateStep(btn, delta) {
-  btn.addEventListener("mousedown",  (e) => { e.preventDefault(); startHold(delta); });
-  btn.addEventListener("touchstart", (e) => { e.preventDefault(); startHold(delta); }, { passive: false });
-  btn.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (stepDate(delta)) { flushRoll(); refreshMapImages(); } } });
+document.addEventListener('pointerdown', () => { _pointerHeld = true; }, true);
+for (const ev of ['pointerup', 'pointercancel']) {
+  document.addEventListener(ev, () => { _pointerHeld = false; settleSteps(); }, true);
 }
-wireDateStep(document.getElementById("btn-date-prev"), -1);
-wireDateStep(document.getElementById("btn-date-next"), +1);
-wireDateStep(document.getElementById("btn-rail-prev"), -1);
-wireDateStep(document.getElementById("btn-rail-next"), +1);
-document.addEventListener("mouseup", stopHold);
-document.addEventListener("touchend", stopHold);
-document.addEventListener("touchcancel", stopHold);
+function canStepDate(delta) {
+  if (!dateInput.value) return false;
+  const next = MCO.shiftDate(dateInput.value, delta);
+  return delta < 0 ? !(dateInput.min && next < dateInput.min) : next <= computeMaxTimestep().date;
+}
+function stepDate(delta) {
+  dateInput.value = MCO.shiftDate(dateInput.value, delta);
+  _pendingRoll = clampDate() || _pendingRoll;
+  updateUrl();
+  _stepPending = true;
+  clearTimeout(_stepSettle);
+  if (!_pointerHeld) _stepSettle = setTimeout(settleSteps, STEP_SETTLE_MS);
+}
+// The kit keeps keyboard focus at a bound (0.11.2): disabling the focused
+// button hands focus to the pair's other one.
+_dateSteppers = [
+  ["btn-date-prev", "btn-date-next"],
+  ["btn-rail-prev", "btn-rail-next"],
+].map(([prev, next]) => MCO.initStepper({
+  prev: document.getElementById(prev), next: document.getElementById(next),
+  onStep: stepDate, canStep: canStepDate,
+}));
 
 // ── Boundaries toggle (county lines + tribal nations, together) ───────────────
 const BOUNDARY_LAYERS = ["counties-line", "tribal-fill", "tribal-line", "tribal-label"];
@@ -1503,45 +1483,25 @@ async function copyShareLink() {
 }
 document.getElementById("btn-share").addEventListener("click", copyShareLink);
 
-// ── Landscape rail + drawer (app-local prototype) ─────────────────────────────
-// On short landscape screens the navbar is a left rail (CSS "RAIL MODE") and
-// the full control set lives in a slide-out drawer. Disclosure semantics: the
-// menu button carries aria-expanded; opening moves focus in and makes the map
-// inert (it sits under a scrim); Esc, the scrim, or the button close it and
-// focus returns to the button. KEEP IN SYNC with the CSS media query.
-const RAIL_MQ    = window.matchMedia('(max-height: 560px) and (orientation: landscape)');
-const navDrawer  = document.getElementById('nav-drawer');
-const btnMenu    = document.getElementById('btn-menu');
-const railScrim  = document.getElementById('rail-scrim');
-
-function isDrawerOpen() { return navDrawer.classList.contains('is-open'); }
-function openDrawer(focusEl) {
-  navDrawer.classList.add('is-open');
-  btnMenu.setAttribute('aria-expanded', 'true');
-  railScrim.hidden = false;
-  mainEl.inert = true;
-  // display flips synchronously with the class, so the target is focusable now.
-  (focusEl || navDrawer.querySelector('input, select, button')).focus();
-}
-function closeDrawer({ restoreFocus = true } = {}) {
-  if (!isDrawerOpen()) return;
-  navDrawer.classList.remove('is-open');
-  btnMenu.setAttribute('aria-expanded', 'false');
-  railScrim.hidden = true;
-  mainEl.inert = false;
-  if (restoreFocus) btnMenu.focus();
-}
-btnMenu.addEventListener('click', () => { if (isDrawerOpen()) closeDrawer(); else openDrawer(); });
-railScrim.addEventListener('click', () => closeDrawer());
-navDrawer.addEventListener('keydown', (e) => {
-  // The search field consumes its own Esc first (dropdown, then overlay).
-  if (e.key === 'Escape' && isDrawerOpen() && !e.defaultPrevented) { e.preventDefault(); closeDrawer(); }
+// ── Landscape rail + drawer (kit 0.10.0) ──────────────────────────────────────
+// On short landscape screens (MCO.viewport.RAIL_MQ) the navbar is the kit's
+// left rail and the full control set lives in its drawer. MCO.initNavRail owns
+// the disclosure: aria-expanded on the menu button, focus into the drawer on
+// open (the search field first), everything else inert under the scrim, Esc /
+// the scrim / the button to close with focus back on the button, and closing
+// when a rotation leaves rail mode. The app keeps its three hand-offs (HOUSE-
+// STYLE §3 Short landscape): `/` opens the drawer on the search field, a search
+// result closes it without restoring focus, and Export / the info dialog close
+// it first (the map has to be visible for them).
+const btnMenu = document.getElementById('btn-menu');
+const navRail = MCO.initNavRail({
+  toggle: btnMenu,
+  drawer: document.getElementById('nav-drawer'),
+  scrim: document.getElementById('rail-scrim'),
+  initialFocus: searchInput,
 });
-// Leaving rail mode (rotation) turns the drawer back into the navbar row.
-RAIL_MQ.addEventListener('change', () => closeDrawer({ restoreFocus: false }));
-// Export and the dialogs need the map visible, so they close the drawer first.
 for (const id of ['btn-export', 'btn-info']) {
-  document.getElementById(id).addEventListener('click', () => closeDrawer({ restoreFocus: false }));
+  document.getElementById(id).addEventListener('click', () => navRail.close({ restoreFocus: false }));
 }
 
 // Date/time/direction at a glance, since the drawer is usually closed.
@@ -1556,8 +1516,8 @@ function updateRail() {
   railReadout.replaceChildren(...[md, String(d.getUTCFullYear()), slotLabel(timeInput.value)].map(t => {
     const span = document.createElement('span'); span.textContent = t; return span;
   }));
-  btnRailDir.textContent = currentDir === 'SNOW' ? 'Snow' : currentDir;
-  btnRailDir.setAttribute('aria-label', `Camera direction ${dirLabel(currentDir)}. Switch to next direction`);
+  btnRailDir.textContent = segText(currentDir);
+  btnRailDir.setAttribute('aria-label', `Camera direction ${segName(currentDir)}. Switch to next direction`);
 }
 
 // ── Global keyboard shortcuts ─────────────────────────────────────────────────
@@ -1570,7 +1530,7 @@ window.addEventListener("keydown", (e) => {
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
     e.preventDefault();
     // Rail mode: the field lives in the drawer.
-    if (RAIL_MQ.matches) { openDrawer(searchInput); return; }
+    if (navRail.isRail()) { navRail.open(searchInput); return; }
     // Below 460px the field is collapsed — open the overlay instead of focusing
     // a hidden input (which would silently do nothing).
     if (searchCollapse.isCollapsed()) { searchCollapse.open(); return; }
@@ -1580,45 +1540,57 @@ window.addEventListener("keydown", (e) => {
 });
 
 // ── URL sync & social meta ────────────────────────────────────────────────────
+// Tab and link card per HOUSE-STYLE §1 through the kit (MCO.setPageTitle /
+// MCO.setSocialMeta): the tab stays the short name, matching the Explorer and
+// UMRB Build maps; the card gets the date as its one detail ("October 9, 2026 ·
+// Photos · Montana Mesonet"), with the time and direction in the description.
+// The card image is the bot-regenerated preview.png (preview.yml), not the
+// kit's og-card. og:url follows the shared state; the canonical link stays the
+// static production one in index.html (no `canonical` passed — kit 0.11.2).
 function updateSocialMeta() {
   const label = dirLabel(currentDir);
   const dateFmt = MCO.formatDateStr(dateInput.value);
   const timeFmt = `${slotLabel(timeInput.value)} MT`;
-  const title = `Montana Mesonet Photos · ${dateFmt} · ${timeFmt} · ${label}`;
   const desc  = `Montana weather station photos for ${dateFmt} at ${timeFmt}, ${label} direction. ` +
                 `A service of the Montana Climate Office.`;
-  // The tab keeps the short site name ("Photos · MT Mesonet"), matching
-  // the Explorer and UMRB Build maps; the dated title goes only to the social cards.
-  document.title = "Photos · MT Mesonet";
-  const previewUrl = new URL("preview.png", location.href).href;
-  const set = (sel, content) => document.querySelector(sel)?.setAttribute("content", content);
-  set('meta[property="og:title"]', title);
-  set('meta[property="og:description"]', desc);
-  set('meta[property="og:url"]', location.href);
-  set('meta[property="og:image"]', previewUrl);
-  set('meta[name="twitter:title"]', title);
-  set('meta[name="twitter:description"]', desc);
-  set('meta[name="twitter:image"]', previewUrl);
-  set('meta[name="description"]', desc);
+  MCO.setPageTitle({ short: 'Photos' });
+  MCO.setSocialMeta({
+    short: 'Photos', detail: dateFmt, description: desc,
+    image: new URL("preview.png", location.href).href, imageWidth: 2800, imageHeight: 1400,
+    imageAlt: 'Map of Montana Mesonet weather stations with station photos',
+    url: location.href,
+  });
+  document.querySelector('meta[name="description"]')?.setAttribute("content", desc);
 }
 // Mirror state into the query string (HOUSE-STYLE §4). Defaults are elided —
 // except date and time, which are always emitted on purpose: their "default"
 // is the latest available timestep, so a link without them would show a
 // different view tomorrow.
-function updateUrl() {
+function updateUrl({ push = false, state } = {}) {
   // Hour only while every slot is on the hour ("time=15"); "HH:MM" otherwise.
   const [h, m] = timeInput.value.split(":");
   const params = { date: dateInput.value, time: +m ? `${h}:${m}` : parseInt(h) };
   if (currentDir !== DEFAULT_DIR) params.dir = currentDir;
   if (showCounties) params.overlay = "counties";
+  // Clean-URL defaults (HOUSE-STYLE §4): the theme only when it differs from
+  // the OS preference a visitor with no choice would get, and the camera only
+  // away from the default Montana extent. Old links carrying either still
+  // work: the anti-flash script reads ?theme=, initialCamera reads the camera.
   const theme = MCO.getTheme();
-  if (theme) params.theme = theme;
-  if (_mapReady && map) Object.assign(params, MCO.map.cameraParams(map));
+  if (theme !== MCO.osTheme()) params.theme = theme;
+  // With a gallery open the camera is always written: a reload or shared link
+  // with ?station= and a camera opens the gallery in place, while a bare
+  // ?station= link flies to the station first (map 'load' handler).
+  if (_mapReady && map) {
+    Object.assign(params, _selectedStation ? MCO.map.cameraParams(map) : MCO.map.cameraParamsIfDefault(map));
+  }
   if (_selectedStation) params.station = _selectedStation;
   if (!kbdShortcuts) params.kbd = 'off';   // preserve the a11y opt-out across navigation
-  MCO.replaceUrlState(params);
+  if (push) MCO.pushUrlState(params, { state });
+  else MCO.replaceUrlState(params);
   updateSocialMeta();
   updateRail();
+  _dateSteppers.forEach(st => st.refresh());   // bounds may have moved
 }
 
 // ── Export (PNG with MCO branding) ────────────────────────────────────────────
@@ -1688,7 +1660,7 @@ async function exportPNG() {
     xm.addSource('cells', { type: 'geojson', data: _cellsFC });
     xm.addLayer({ id: 'cells-outline', type: 'line', source: 'cells',
                   filter: ['in', ['get', 'station'], ['literal', validIds]],
-                  paint: { 'line-color': cssVar('--border', '#3a4558'), 'line-width': 0.8, 'line-opacity': 0.9 } });
+                  paint: { 'line-color': MCO.cssVar('--border'), 'line-width': 0.8, 'line-opacity': 0.9 } });
 
     // Reservation labels on top — only when the toggle is on.
     if (showCounties) {
@@ -1749,8 +1721,24 @@ function roundRectPath(ctx, x, y, w, h, r) {
   ctx.arcTo(x,     y,     x + w, y,     r);
   ctx.closePath();
 }
-// Branding card in the lower-left corner (over the basemap). Canvas can't read
-// custom properties, so the tokens are resolved here (MIGRATING.md § gotchas).
+// True when a CSS color is light enough that dark text reads on it (the card's
+// background decides the wordmark twin, not the page theme). A 1×1 canvas
+// normalises any CSS color the tokens may use; relative luminance per WCAG.
+function isLightColor(color) {
+  const c = document.createElement('canvas').getContext('2d');
+  c.fillStyle = '#000'; c.fillStyle = color;
+  c.fillRect(0, 0, 1, 1);
+  const [r, g, b] = c.getImageData(0, 0, 1, 1).data;
+  const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b) > 0.179;
+}
+
+// Branding card in the lower-left corner (over the basemap): the kit's MCO
+// wordmark (its own "Montana Climate Office" text, so it isn't repeated in
+// type), then the app name, the slot and direction, and the URL. Canvas can't
+// read custom properties, so the tokens are resolved here (MIGRATING.md §
+// gotchas). The wordmark keeps HOUSE-STYLE §1's clear space (≥15% of its
+// height) and minimum size (40px tall).
 async function drawBranding(ctx, W, H) {
   const cs = getComputedStyle(document.documentElement);
   const bgSurface = cs.getPropertyValue("--bg-surface").trim();
@@ -1759,9 +1747,10 @@ async function drawBranding(ctx, W, H) {
   const textMuted = cs.getPropertyValue("--text-muted").trim();
   const fontUi    = cs.getPropertyValue("--font-ui").trim() || "system-ui, sans-serif";
 
-  const BRAND_W = 280, BRAND_BOX_H = 80;
-  const BX = 24, BY = H - 24 - BRAND_BOX_H, PAD = 12, LOGO = 52;
-  const LX = BX + PAD, LY = BY + (BRAND_BOX_H - LOGO) / 2;
+  const MARK_H = 44, MARK_W = Math.round(MARK_H * 432 / 159);   // the SVG's 432×159 viewBox
+  const BRAND_W = 340, BRAND_BOX_H = 72;
+  const BX = 24, BY = H - 24 - BRAND_BOX_H, PAD = 14;
+  const LX = BX + PAD, LY = BY + (BRAND_BOX_H - MARK_H) / 2;
 
   ctx.save();
   ctx.globalAlpha = 0.88;
@@ -1771,26 +1760,21 @@ async function drawBranding(ctx, W, H) {
   ctx.strokeStyle = borderClr; ctx.lineWidth = 1; ctx.stroke();
   ctx.restore();
 
-  const logoImg = await loadImg(LOGO_URL);
-  if (logoImg) {
-    ctx.save();
-    ctx.beginPath(); roundRectPath(ctx, LX, LY, LOGO, LOGO, 8); ctx.clip();
-    ctx.drawImage(logoImg, LX, LY, LOGO, LOGO);
-    ctx.restore();
-  }
+  const mark = await loadImg(WORDMARK_URL(isLightColor(bgSurface)));
+  if (mark) ctx.drawImage(mark, LX, LY, MARK_W, MARK_H);
 
-  const TX = LX + LOGO + 10, TW = BX + BRAND_W - PAD - TX, midY = BY + BRAND_BOX_H / 2;
+  // Text column, a clear-space gap right of the mark.
+  const TX = LX + MARK_W + Math.ceil(MARK_H * 0.15) + 6, TW = BX + BRAND_W - PAD - TX, midY = BY + BRAND_BOX_H / 2;
   ctx.textBaseline = "middle";
   ctx.fillStyle = accentLn;
   ctx.font = `700 13px ${fontUi}`;
-  ctx.fillText("Mesonet Photo Explorer", TX, midY - 14, TW);
+  ctx.fillText("Mesonet Photo Explorer", TX, midY - 13, TW);
   ctx.fillStyle = textMuted;
   ctx.font = `400 11px ${fontUi}`;
-  ctx.fillText("Montana Climate Office", TX, midY, TW);
-  ctx.fillText(`${formatDisplayTimestamp(getSelectedDateTime())} · ${dirLabel(currentDir)}`, TX, midY + 13, TW);
+  ctx.fillText(`${formatDisplayTimestamp(getSelectedDateTime())} · ${dirLabel(currentDir)}`, TX, midY + 3, TW);
   ctx.textAlign = "right";
   ctx.font = `italic 10px ${fontUi}`;
-  ctx.fillText("climate.umt.edu", BX + BRAND_W - PAD, BY + BRAND_BOX_H - 7);
+  ctx.fillText("climate.umt.edu", BX + BRAND_W - PAD, BY + BRAND_BOX_H - 9);
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
 }

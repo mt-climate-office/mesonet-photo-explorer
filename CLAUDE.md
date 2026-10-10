@@ -6,7 +6,7 @@ The Montana Mesonet Photo Explorer: a static MapLibre single-page app in `docs/`
 ## House style
 
 This app consumes mco-web-style (pinned + SRI in `docs/index.html`; currently
-**v0.11.2**, with MapLibre GL **6.11.2** — check the tag in that file rather than trusting this line). Design tokens, a11y mandates, and interaction conventions: see
+**v0.11.3**, with MapLibre GL **6.11.2** — check the tag in that file rather than trusting this line). Design tokens, a11y mandates, and interaction conventions: see
 HOUSE-STYLE.md in https://github.com/mt-climate-office/mco-web-style — tokens
 only (no raw hexes), `--accent` is fill-only, `aria-pressed` drives toggle
 styling, canvas data needs a live region + sr-only table twin. To change shared
@@ -14,8 +14,14 @@ styling, change the kit and bump the pinned version here; never patch a local
 copy.
 
 App-local by deliberate kit decision (do NOT extract): the photo-mosaic
-machinery, the gallery/lightbox dialogs, the date stepper, the direction
-segments + `<select>` fallback, `updateSocialMeta`, and the branded PNG export.
+machinery, the gallery/lightbox dialogs, and the branded PNG export. Since kit
+0.9.0 these are the kit's — don't re-grow local copies: the date steppers
+(`MCO.initStepper`), the direction segments' `<select>` fallback
+(`MCO.initSegmentedFallback`), the search combobox (`MCO.initSearchBox`),
+the social/tab titles (`MCO.setSocialMeta` / `setPageTitle`), the announcer
+(`MCO.announce`), the table twin (`MCO.srTable`), and the basemap failure
+fallback (`MCO.map.watchBasemap`). The social card image stays the
+bot-regenerated `docs/preview.png`, not the kit's og-card.
 
 Marked kit-overrides in this app:
 - **No hillshade** — the photo mosaic is the figure; relief under opaque photo
@@ -25,13 +31,13 @@ Marked kit-overrides in this app:
   ≤750px — that is the kit default, not an override. Search collapsing to an icon
   + overlay at ≤640px is the kit's `.mco-search-collapse` component (this app
   prototyped it; mesonet-status adopting it is what moved it into the kit).
-- **Landscape rail** — at `(max-height: 560px) and (orientation: landscape)` the
-  navbar becomes a 56px left rail (menu, day ▲/▼, date/time readout, direction
-  cycle) and `#nav-drawer` (brand + `.controls` + `.nav-meta`, `display: contents`
-  elsewhere) is a slide-out drawer over `.mco-scrim`, with `#main` inert while
-  open. The CSS "RAIL MODE" block and `RAIL_MQ` in app.js must agree. Prototyped
-  here for the kit (mco-web-style #38, building on #5/#11); promote it rather than
-  copy it if a second app wants it.
+- **Landscape rail** — prototyped here and adopted by the kit in 0.10.0
+  (mco-web-style #38): `.mco-navbar[data-rail]` + `.mco-rail` +
+  `.mco-nav-drawer` + `MCO.initNavRail`, at `MCO.viewport.RAIL_MQ`. The app
+  keeps only its rail content (day ▲/▼, date/time readout, direction cycle)
+  and how its control groups stack in the drawer, plus the three hand-offs:
+  `/` opens the drawer on the search field, a search result closes it without
+  restoring focus, Export / info close it first.
 
 ## Camera schedule source
 
