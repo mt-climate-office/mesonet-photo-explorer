@@ -32,9 +32,16 @@ const DASH_URL        = (s) => `https://mesonet.climate.umt.edu/dash/${s}`;
 const KIT_ASSETS      = "https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/assets/";
 const WORDMARK_URL    = (onLight) => `${KIT_ASSETS}mco-wordmark-on-${onLight ? 'light' : 'dark'}.svg`;
 
-const DIR_ORDER  = ["N", "S", "E", "W", "SNOW", "NS", "SS"];
-const DIR_LABELS = { N: "North", S: "South", E: "East", W: "West", SNOW: "Snow", NS: "North Sky", SS: "South Sky" };
+const DIR_ORDER  = ["N", "S", "E", "W", "SNOW", "SSNOW", "PLUVIO", "NS", "SS"];
+const DIR_LABELS = { N: "North", S: "South", E: "East", W: "West", SNOW: "Snow", SSNOW: "South Snow",
+                     PLUVIO: "Pluvio", NS: "North Sky", SS: "South Sky" };
+// Segment text where the bare token would read as shouting; the rest show the token.
+const SEG_TEXT   = { SNOW: "Snow", SSNOW: "S Snow", PLUVIO: "Pluvio" };
 const DEFAULT_DIR = "W";
+// Schedule tokens that are camera housekeeping, not views: dropped at parse time,
+// so they never reach the direction controls, the gallery, or the slot counts.
+// PARK is the PTZ's rest preset between patrols.
+const HIDDEN_DIRS = new Set(["PARK"]);
 // Curated labels win over the schedule's `view` names (which are literally "NS"/
 // "SS" for the sky cameras); a token the kit has never seen falls back to them.
 function dirLabel(d) { return DIR_LABELS[d] || _viewNames[d] || d; }
@@ -621,15 +628,15 @@ async function loadData() {
   // Parse the schedule once. `from`/`until` carry explicit offsets, so Date.parse
   // is exact and DST-agnostic; every slot a view shoots is kept (which ones the
   // menu offers is decided per date by slotsForDate), and a view with none is
-  // dropped. Deliberately unused: `patterns` (see thumbPhotoUrl), `zone`
-  // (MCO.TZ), `snap_max_seconds`.
+  // dropped, as is a HIDDEN_DIRS token. Deliberately unused: `patterns` (see
+  // thumbPhotoUrl), `zone` (MCO.TZ), `snap_max_seconds`.
   const tokens = new Set(), candidates = new Set();
   for (const [id, st] of Object.entries(sched.stations)) {
     const periods = (st.periods || []).map(p => {
       const views = new Map(), slots = new Set();
       for (const [token, v] of Object.entries(p.views || {})) {
         const vs = new Set(v.slots_local || []);
-        if (!vs.size) continue;
+        if (!vs.size || HIDDEN_DIRS.has(token)) continue;
         views.set(token, vs);
         for (const s of vs) { slots.add(s); candidates.add(s); }
         tokens.add(token);
@@ -739,7 +746,7 @@ function syncDirections() {
 // A segment's visible text is an abbreviation ("NS"); WCAG 2.5.3 wants the
 // accessible name to contain it, so the name starts with it whenever the full
 // label doesn't ("NS, North Sky"; "West" already starts with "W").
-function segText(dir) { return dir === "SNOW" ? "Snow" : dir; }
+function segText(dir) { return SEG_TEXT[dir] || dir; }
 function segName(dir) {
   const text = segText(dir), full = dirLabel(dir);
   return full.toLowerCase().startsWith(text.toLowerCase()) ? full : `${text}, ${full}`;
