@@ -42,6 +42,9 @@ const DEFAULT_DIR = "W";
 // so they never reach the direction controls, the gallery, or the slot counts.
 // PARK is the PTZ's rest preset between patrols.
 const HIDDEN_DIRS = new Set(["PARK"]);
+// Instrument views (snow stakes, the Pluvio gauge) are for staff: shown only in
+// the internal view, otherwise dropped at parse time exactly like HIDDEN_DIRS.
+const INTERNAL_DIRS = new Set(["SNOW", "SSNOW", "PLUVIO"]);
 // Curated labels win over the schedule's `view` names (which are literally "NS"/
 // "SS" for the sky cameras); a token the kit has never seen falls back to them.
 function dirLabel(d) { return DIR_LABELS[d] || _viewNames[d] || d; }
@@ -160,6 +163,14 @@ const _slotPinnedByUrl = urlParams.has('date') || urlParams.has('time');
 // Single-character shortcuts need an opt-out (WCAG 2.1.4). Re-emitted on
 // replaceState so it sticks while browsing, but excluded from shared links.
 const kbdShortcuts = getLower('kbd') !== 'off';
+
+// Internal view (as in mesonet-umrb-build): a bare `?internal=1` or
+// `?view=internal`. Deliberately has no button — you reach it by knowing the
+// URL — and is not persisted to localStorage, so a shared machine never stays
+// in it. Re-emitted by updateUrl so it sticks while browsing and in shared links.
+const internalView = getLower('view') === 'internal' ||
+  (urlParams.has('internal') && !['', '0', 'false', 'no', 'off'].includes(getLower('internal')));
+const isDroppedDir = (token) => HIDDEN_DIRS.has(token) || (!internalView && INTERNAL_DIRS.has(token));
 
 // Headless export: ?export=light|dark forces the theme before the map is built.
 // Set directly (not MCO.setTheme) so a CI screenshot run never persists a theme.
@@ -628,7 +639,8 @@ async function loadData() {
   // Parse the schedule once. `from`/`until` carry explicit offsets, so Date.parse
   // is exact and DST-agnostic; every slot a view shoots is kept (which ones the
   // menu offers is decided per date by slotsForDate), and a view with none is
-  // dropped, as is a HIDDEN_DIRS token. Deliberately unused: `patterns` (see
+  // dropped, as is a HIDDEN_DIRS token (and, outside the internal view, an
+  // INTERNAL_DIRS one). Deliberately unused: `patterns` (see
   // thumbPhotoUrl), `zone` (MCO.TZ), `snap_max_seconds`.
   const tokens = new Set(), candidates = new Set();
   for (const [id, st] of Object.entries(sched.stations)) {
@@ -636,7 +648,7 @@ async function loadData() {
       const views = new Map(), slots = new Set();
       for (const [token, v] of Object.entries(p.views || {})) {
         const vs = new Set(v.slots_local || []);
-        if (!vs.size || HIDDEN_DIRS.has(token)) continue;
+        if (!vs.size || isDroppedDir(token)) continue;
         views.set(token, vs);
         for (const s of vs) { slots.add(s); candidates.add(s); }
         tokens.add(token);
@@ -1592,6 +1604,7 @@ function updateUrl({ push = false, state } = {}) {
     Object.assign(params, _selectedStation ? MCO.map.cameraParams(map) : MCO.map.cameraParamsIfDefault(map));
   }
   if (_selectedStation) params.station = _selectedStation;
+  if (internalView) params.internal = '1';
   if (!kbdShortcuts) params.kbd = 'off';   // preserve the a11y opt-out across navigation
   if (push) MCO.pushUrlState(params, { state });
   else MCO.replaceUrlState(params);

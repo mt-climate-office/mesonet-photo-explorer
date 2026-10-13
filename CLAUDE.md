@@ -77,6 +77,9 @@ run by every `refreshMapImages`): a token is offered only if some placed station
 scheduled to shoot it at the selected slot, so the retired sky cameras' NS/SS vanish after
 their last scheduled slot (acecrowa, 2026-09-29 16:38 MT). A direction the slot lacks falls
 back to W (`DEFAULT_DIR`, toasted), and the sticky `_wantedDir` is restored when a slot offers it again.
+The instrument views SNOW/SSNOW/PLUVIO (`INTERNAL_DIRS`) are staff-only: dropped at parse
+time like PARK unless the URL carries `?internal=1` (or `?view=internal`), the same
+URL-only, unpersisted flag as mesonet-umrb-build; `updateUrl` re-emits it.
 `thumbPhotoUrl`/`largePhotoUrl` are hardcoded and must agree with the file's `patterns`.
 
 Known upstream data oddity (fix in mesonet-cameras `data/rollout.json`, not here): the
