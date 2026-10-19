@@ -15,10 +15,10 @@
 'use strict';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-// TEMPORARY: data2.climate.umt.edu's TLS certificate expired (2026-10-18); its
-// CloudFront distribution's default domain serves the same paths. Revert to
-// "https://data2.climate.umt.edu/mesonet" (and drop it from the CSP) once renewed.
-const CLOUDFRONT_BASE = "https://d1s8jav5n0eyyf.cloudfront.net/mesonet"; // WebP photos, thumb + large
+const CLOUDFRONT_BASE = "https://data2.climate.umt.edu/mesonet";       // WebP photos, thumb + large
+// Backup: data2's CloudFront default domain serves the same paths. Swap it in
+// if data2's certificate lapses again (the CSP already allows both).
+// const CLOUDFRONT_BASE = "https://d1s8jav5n0eyyf.cloudfront.net/mesonet";
 // What each station photographs, at which Mountain wall-clock slots, since when
 // — published by the mesonet-cameras repo (`mesocam rollout publish`), replacing
 // the Airtable-fed /api/v2/photos list that had drifted from the cameras.
