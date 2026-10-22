@@ -26,7 +26,10 @@ export default {
   scenarios: [
     { name: 'default', query: '', ready: mosaicReady },
     // Pinned slot + a non-default direction + boundaries on (a deep link).
-    { name: 'pinned', query: '?date=2026-09-01&time=15&dir=N&overlay=counties', ready: mosaicReady },
+    // On or after 2026-10-22: the public range starts there (kit 0.14.0, D7).
+    { name: 'pinned', query: '?date=2026-10-22&time=12&dir=E&overlay=counties', ready: mosaicReady },
+    // Staff view: history before the public range, instrument views offered.
+    { name: 'internal', query: '?internal=1&date=2026-09-01&time=15', ready: mosaicReady },
     // Station deep link: the gallery dialog opens over the map.
     { name: 'station', query: '?station=acebozem&lng=-110&lat=46&zoom=6', ready: () => document.getElementById('modal').open },
   ],
@@ -65,6 +68,22 @@ export default {
       await page.click('#modal-close'); await page.waitForTimeout(600);
       const x = await st();
       check('× closes without a second pop or a new entry', !x.open && !x.station && x.len === fwd.len, JSON.stringify(x));
+      await close();
+    }
+    // D7 (kit 0.14.0): a public date before 2026-10-22 lands on 2026-10-22,
+    // and the URL follows; the staff view keeps the date.
+    {
+      const { page, close } = await open('?date=2026-09-01&time=15', { ready: mosaicReady });
+      const r = await page.evaluate(() => ({ date: document.getElementById('date-input').value,
+        min: document.getElementById('date-input').min, url: new URLSearchParams(location.search).get('date') }));
+      check('public ?date= before 2026-10-22 is clamped to it', r.date === '2026-10-22' && r.min === '2026-10-22' && r.url === '2026-10-22', JSON.stringify(r));
+      await close();
+    }
+    {
+      const { page, close } = await open('?internal=1&date=2026-09-01&time=15', { ready: mosaicReady });
+      const r = await page.evaluate(() => ({ date: document.getElementById('date-input').value,
+        views: [...document.querySelectorAll('#dir-select option')].map((o) => o.value) }));
+      check('?internal=1 keeps history and offers staff views', r.date === '2026-09-01' && r.views.some((v) => !['N', 'E', 'S', 'W'].includes(v)), JSON.stringify(r));
       await close();
     }
     // The social-preview contract (scripts/generate_preview.py): ?export=light&dir=W

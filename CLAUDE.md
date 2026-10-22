@@ -6,7 +6,7 @@ The Montana Mesonet Photo Explorer: a static MapLibre single-page app in `docs/`
 ## House style
 
 This app consumes mco-web-style (pinned + SRI in `docs/index.html`; currently
-**v0.11.3**, with MapLibre GL **6.11.2** — check the tag in that file rather than trusting this line). Design tokens, a11y mandates, and interaction conventions: see
+**v0.14.0**, with MapLibre GL **6.11.2** — check the tag in that file rather than trusting this line). Design tokens, a11y mandates, and interaction conventions: see
 HOUSE-STYLE.md in https://github.com/mt-climate-office/mco-web-style — tokens
 only (no raw hexes), `--accent` is fill-only, `aria-pressed` drives toggle
 styling, canvas data needs a live region + sr-only table twin. To change shared
@@ -20,7 +20,10 @@ machinery, the gallery/lightbox dialogs, and the branded PNG export. Since kit
 (`MCO.initSegmentedFallback`), the search combobox (`MCO.initSearchBox`),
 the social/tab titles (`MCO.setSocialMeta` / `setPageTitle`), the announcer
 (`MCO.announce`), the table twin (`MCO.srTable`), and the basemap failure
-fallback (`MCO.map.watchBasemap`). The social card image stays the
+fallback (`MCO.map.watchBasemap`). Since kit 0.14.0 the station-photo layer is
+the kit's too (`MCO.photos`, `photos/mco-photos.js`): the camera schedule, the
+slot and direction rules, frame URLs, and the date / time / direction controls
+(`MCO.photos.initPhotoControls`). The social card image stays the
 bot-regenerated `docs/preview.png`, not the kit's og-card.
 
 Marked kit-overrides in this app:
@@ -43,55 +46,52 @@ Marked kit-overrides in this app:
 
 Photo expectations come from the published camera schedule, not the Mesonet API:
 `https://data2.climate.umt.edu/mesonet/photos/schedule/schedule.json` (`schema: 1`,
-`max-age=60`, CORS `*`), written by `mesocam rollout publish` in the mesonet-cameras
-repo. `/api/v2/photos` (Airtable-fed) had drifted from what the cameras shoot and is
-gone from this app. Stations, coordinates, status and `ace_grid` still come from the
-API, now at `mesonet2.climate.umt.edu/api/...` (same paths and schema).
+CORS `*`), written by `mesocam rollout publish` in the mesonet-cameras repo. Stations,
+coordinates, status and `ace_grid` still come from the API at
+`mesonet2.climate.umt.edu/api/...`.
 
-`isValidForSlot(station, dir, dtStr)` is **period-aware**: the slot's UTC instant picks
-the schedule period (`from <= t < until`), the token must be in that period's views,
-the slot's local `HH:MM` must be in its `slots_local`, and the date must be on or after
-`first_month + "-01"`. So a camera moved at 13:21 MT shows its old views at 09:00 and
-its new ones at 15:00 that day, and history renders what was actually shot.
+**The kit reads it** (mco-web-style 0.14.0, `MCO.photos`; HOUSE-STYLE § "Station
+photos"). This app no longer parses the schedule, builds the Time menu, picks
+directions or converts Mountain time itself. What the kit does for it:
 
-**The Time menu is built per selected date from the schedule** (`slotsForDate`): a slot
-is offered on a date when at least half of the stations shooting anything that day shoot
-it (period-aware, at that date's UTC instant). So dates before 2026-09-20 offer 09:00/15:00,
-later dates 09:00/12:00/15:00, and the 2026-09-11..20 hourly pilot (~30 cameras) never
-reaches the menu. The static `<option>`s in `index.html` are only a pre-load placeholder.
-`computeMaxTimestep`, `previousSlot`, `clampDate` and `resolveInitialTimestep` all read
-`slotsForDate`; `SLOT_FALLBACK_MAX` (6) is sized in slots (≈2 days at 3/day). Today's
-not-yet-cleared slots are listed but `disabled` (grayed, no suffix, so the `<select>` keeps its width), and today is
-unreachable until its first slot clears the lag (`dateInput.max` is refreshed by
-`computeMaxTimestep`). Every date change funnels through `clampDate()`, which resolves the
-time from the sticky preference `_wantedTime` (the last `?time`/user pick): wanted slot if
-offered, else the next later one that day, else the last; a bare `?date=` lands on the
-day's first slot. A move is toasted once — batched across a hold-to-repeat run
-(`_pendingRoll`/`flushRoll`). `arrivals.json` in the same directory is deliberately NOT
-read: as published it is a stale two-day snapshot; the hook point is noted in
-`slotsForDate`. The date picker floor is the constant `PHOTOS_MIN_DATE` (2022-09-22, the
-old API's network-wide start); the schedule's `first_month` reaches back to 2016-12 for a
-few stations but coverage there is sparse.
-**The direction controls are likewise fitted per slot** (`dirsForSlot`/`syncDirections`,
-run by every `refreshMapImages`): a token is offered only if some placed station was
-scheduled to shoot it at the selected slot, so the retired sky cameras' NS/SS vanish after
-their last scheduled slot (acecrowa, 2026-09-29 16:38 MT). A direction the slot lacks falls
-back to N (`DEFAULT_DIR`, toasted), and the sticky `_wantedDir` is restored when a slot offers it again.
-Only N/S/E/W (`PUBLIC_DIRS`, an allowlist) are public. Every other token (SNOW, NSNOW,
-SSNOW, PLUVIO, SOLAR, the sky NS/SS, and anything the schedule adds later) is staff-only: dropped at parse
-time like PARK unless the URL carries `?internal=1` (or `?view=internal`), the same
-URL-only, unpersisted flag as mesonet-umrb-build; `updateUrl` re-emits it.
-`thumbPhotoUrl`/`largePhotoUrl` are hardcoded and must agree with the file's `patterns`.
+- `P.load({internal})` parses the schedule into per-station view windows, once,
+  with the audience filter applied as an allowlist. **Public: N, E, S, W only, from
+  2026-10-22** (website DECISIONS D7/D15: before 2026-10-21 16:00 MT "N" was the
+  pluviometer and "S" the snow stake, so every public direction starts after it).
+  Never pass `since` for the public view. **Staff (`?internal=1` or
+  `?view=internal`)**: every view but PARK, from `INTERNAL_SINCE` (2022-09-22, the
+  old API's network-wide start), with pre-cutover N/S labelled "North"/"South".
+  The flag is URL-only and unpersisted; `updateUrl` re-emits it.
+- `P.isShotAt(schedule, sta, dir, date, time)` is **period-aware** (the slot's UTC
+  instant picks the window), so history renders what was actually shot.
+- `P.initPhotoControls` owns `#date-input`, `#time-input`, the two stepper pairs
+  (navbar and rail) and the direction radio fieldset `#dir-btns` with its
+  `#dir-select` fallback (1400px edge). The Time menu is built per date from the
+  schedule (a slot is offered when at least half of the shooting stations shoot it;
+  today's slots inside the 30-minute lag are listed but disabled). Directions are
+  limited to those some *placed* station shot at the slot (`stations:` option).
+  Wanted time and direction are sticky across days. Initial state: `?date` /
+  `?time` / `?dir` (validated) > the latest cleared slot, North.
+- Moves the visitor did not ask for (a date before photos start, a time that day
+  never offered or not in yet, a direction nobody shot) come back as rolls; the app
+  toasts `P.rollMessage(r)` via `onRoll` (not during `?export=`).
+- It does not write the URL: `updateUrl` merges `controls.params()` (`date`, `time`
+  as `15` or `09:30`, `dir` only away from N). `onChange` refreshes the mosaic,
+  deferring it while a day stepper is held (`STEP_SETTLE_MS`, `_pointerHeld`).
+- Frame URLs are `P.frameUrl(schedule, sta, dir, ms, 'thumb'|'large')`, from the
+  schedule's `patterns`.
+
+`arrivals.json` is deliberately not read: as published it is a stale snapshot.
 
 Known upstream data oddity (fix in mesonet-cameras `data/rollout.json`, not here): the
 legacy period for `acebozem`, `acetosto`, `acemidwa` lists E/N/S/SNOW/W, but the store
-(and the old API) has N/NS/S/SS for them, so their sky views are hidden and their E/W/SNOW
-cells render empty. Two schedule stations (`acehammo`, `acerattl`) are not HydroMet/active
-in the API and so are never placed.
+(and the old API) has N/NS/S/SS for them, so in the staff view their sky views are
+hidden and their E/W/SNOW cells render empty for old dates. Two schedule stations
+(`acehammo`, `acerattl`) are not HydroMet/active in the API and so are never placed.
 
 ## Landing-slot fallback
 
-`computeMaxTimestep` assumes a flat 30-minute processing lag, but the upstream
+The kit's `latestSlot` assumes a flat 30-minute processing lag, but the upstream
 mesonet-cameras job publishes several times a day — so the newest expected slot
 is empty right after it turns over and then fills in gradually (observed climbing
 0% → 50% → 75% over minutes; a settled slot measures ~83%, the rest being cameras
@@ -99,9 +99,11 @@ that are simply offline).
 
 `resolveInitialTimestep()` therefore probes a spread sample of stations before
 the layers are added and picks the newest slot worth showing: it accepts a slot
-at ≥60% of the sample, otherwise walks back up to 4 slots and takes the most
-complete one. **It only runs when neither `?date` nor `?time` is present** — an
-explicit or shared URL is never silently moved. If a run lands on an unexpected
+at ≥60% of the sample, otherwise walks back up to 6 slots (`P.previousSlot`, never
+before the first public date) and takes the most
+complete one, landing with `controls.set(…, {silent: true})`. **It only runs when
+neither `?date` nor `?time` is present** (`controls.pinned`) — an explicit or
+shared URL is never silently moved. If a run lands on an unexpected
 date, this is why; `?date=`/`?time=` pins it.
 
 The probed crops go into `_cropCache`, so the render reuses them. `?export=`
