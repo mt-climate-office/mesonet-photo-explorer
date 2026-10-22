@@ -26,8 +26,7 @@ export default {
   scenarios: [
     { name: 'default', query: '', ready: mosaicReady },
     // Pinned slot + a non-default direction + boundaries on (a deep link).
-    // On or after 2026-10-22: the public range starts there (kit 0.14.0, D7).
-    { name: 'pinned', query: '?date=2026-10-22&time=12&dir=E&overlay=counties', ready: mosaicReady },
+    { name: 'pinned', query: '?date=2026-09-01&time=15&dir=E&overlay=counties', ready: mosaicReady },
     // Staff view: history before the public range, instrument views offered.
     { name: 'internal', query: '?internal=1&date=2026-09-01&time=15', ready: mosaicReady },
     // Station deep link: the gallery dialog opens over the map.
@@ -70,13 +69,15 @@ export default {
       check('× closes without a second pop or a new entry', !x.open && !x.station && x.len === fwd.len, JSON.stringify(x));
       await close();
     }
-    // D7 (kit 0.14.0): a public date before 2026-10-22 lands on 2026-10-22,
-    // and the URL follows; the staff view keeps the date.
+    // Full public history (website D16, kit fullHistory): an old date stays put
+    // and shows that date's North frame, pre-cutover N included.
     {
-      const { page, close } = await open('?date=2026-09-01&time=15', { ready: mosaicReady });
+      const { page, close } = await open('?date=2026-09-01&time=15&dir=N', { ready: mosaicReady });
       const r = await page.evaluate(() => ({ date: document.getElementById('date-input').value,
-        min: document.getElementById('date-input').min, url: new URLSearchParams(location.search).get('date') }));
-      check('public ?date= before 2026-10-22 is clamped to it', r.date === '2026-10-22' && r.min === '2026-10-22' && r.url === '2026-10-22', JSON.stringify(r));
+        min: document.getElementById('date-input').min, url: new URLSearchParams(location.search).get('date'),
+        dir: document.getElementById('dir-select').value,
+        stamp: document.querySelector('#sr-photo-table tbody tr td:nth-child(3), #sr-photo-table tbody tr :nth-child(3)')?.textContent }));
+      check('public ?date=2026-09-01&dir=N keeps the date and shows its North frames', r.date === '2026-09-01' && r.url === '2026-09-01' && r.dir === 'N' && r.min === '2022-09-22' && /Sep 1, 2026 3:00 PM MT/.test(r.stamp || ''), JSON.stringify(r));
       await close();
     }
     {

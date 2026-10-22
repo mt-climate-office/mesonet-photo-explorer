@@ -6,7 +6,7 @@ The Montana Mesonet Photo Explorer: a static MapLibre single-page app in `docs/`
 ## House style
 
 This app consumes mco-web-style (pinned + SRI in `docs/index.html`; currently
-**v0.14.0**, with MapLibre GL **6.11.2** — check the tag in that file rather than trusting this line). Design tokens, a11y mandates, and interaction conventions: see
+**v0.15.0**, with MapLibre GL **6.11.2** — check the tag in that file rather than trusting this line). Design tokens, a11y mandates, and interaction conventions: see
 HOUSE-STYLE.md in https://github.com/mt-climate-office/mco-web-style — tokens
 only (no raw hexes), `--accent` is fill-only, `aria-pressed` drives toggle
 styling, canvas data needs a live region + sr-only table twin. To change shared
@@ -54,14 +54,18 @@ coordinates, status and `ace_grid` still come from the API at
 photos"). This app no longer parses the schedule, builds the Time menu, picks
 directions or converts Mountain time itself. What the kit does for it:
 
-- `P.load({internal})` parses the schedule into per-station view windows, once,
-  with the audience filter applied as an allowlist. **Public: N, E, S, W only, from
-  2026-10-22** (website DECISIONS D7/D15: before 2026-10-21 16:00 MT "N" was the
-  pluviometer and "S" the snow stake, so every public direction starts after it).
-  Never pass `since` for the public view. **Staff (`?internal=1` or
-  `?view=internal`)**: every view but PARK, from `INTERNAL_SINCE` (2022-09-22, the
-  old API's network-wide start), with pre-cutover N/S labelled "North"/"South".
-  The flag is URL-only and unpersisted; `updateUrl` re-emits it.
+- `P.load(...)` parses the schedule into per-station view windows, once, with
+  the audience filter applied as an allowlist. **Public: N, E, S, W over the full
+  history** — `{fullHistory: true, since: PHOTOS_MIN_DATE}` (kit 0.15.0; website
+  DECISIONS D16). The kit's default 2026-10-22 start (D7) is for the website's
+  photo hero only; do not drop `fullHistory` here. Pre-cutover N and S (aimed at
+  the pluviometer and the snow stake until 2026-10-21 16:00 MT) stay public and
+  are labelled "North"/"South", as before. **Staff (`?internal=1` or
+  `?view=internal`)**: `{internal: true, since: PHOTOS_MIN_DATE}`, every view but
+  PARK. `PHOTOS_MIN_DATE` (2022-09-22) is the old API's network-wide start; the
+  schedule's `first_month` reaches back to 2016-12 for a few stations, but
+  coverage there is sparse. The internal flag is URL-only and unpersisted;
+  `updateUrl` re-emits it.
 - `P.isShotAt(schedule, sta, dir, date, time)` is **period-aware** (the slot's UTC
   instant picks the window), so history renders what was actually shot.
 - `P.initPhotoControls` owns `#date-input`, `#time-input`, the two stepper pairs
@@ -99,8 +103,7 @@ that are simply offline).
 
 `resolveInitialTimestep()` therefore probes a spread sample of stations before
 the layers are added and picks the newest slot worth showing: it accepts a slot
-at ≥60% of the sample, otherwise walks back up to 6 slots (`P.previousSlot`, never
-before the first public date) and takes the most
+at ≥60% of the sample, otherwise walks back up to 6 slots (`P.previousSlot`) and takes the most
 complete one, landing with `controls.set(…, {silent: true})`. **It only runs when
 neither `?date` nor `?time` is present** (`controls.pinned`) — an explicit or
 shared URL is never silently moved. If a run lands on an unexpected

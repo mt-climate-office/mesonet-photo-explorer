@@ -30,16 +30,18 @@ const DASH_URL        = (s) => `https://mesonet.climate.umt.edu/dash/${s}`;
 // exports draw from the kit, never climate.umt.edu), loaded with CORS so the
 // canvas stays exportable. KEEP the version in step with the kit tags in
 // index.html. -on-light / -on-dark is picked by the card's own background.
-const KIT_ASSETS      = "https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.14.0/assets/";
+const KIT_ASSETS      = "https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.15.0/assets/";
 const WORDMARK_URL    = (onLight) => `${KIT_ASSETS}mco-wordmark-on-${onLight ? 'light' : 'dark'}.svg`;
 
-// The public range is the kit's (website DECISIONS D7, D15): every direction
-// from 2026-10-22, because before 2026-10-21 16:00 MT "N" was the pluviometer
-// and "S" the snow stake. Never pass `since` for the public view. The staff
-// view (?internal=1) keeps the history, from the network-wide start the old
-// API reported; the schedule's `first_month` reaches back to 2016-12 for a
-// few stations, but WebP coverage before this date is sparse.
-const INTERNAL_SINCE = "2022-09-22";
+// This tool keeps the full public history (website DECISIONS D16, kit 0.15.0
+// `fullHistory`): every date and all four directions, including North and
+// South from before 2026-10-21 16:00 MT, when they were aimed at the
+// pluviometer and the snow stake. (The kit's default 2026-10-22 start is for
+// the website's photo hero only.) Earliest date the picker admits, public and
+// staff alike: the schedule's `first_month` reaches back to 2016-12 for a few
+// stations, but WebP coverage before this is sparse; this is the
+// network-wide start the old API reported.
+const PHOTOS_MIN_DATE = "2022-09-22";
 
 const SEARCH_FLY_ZOOM    = 8.5;
 const SEARCH_FLY_SPEED   = 1.4;
@@ -342,8 +344,9 @@ async function loadData() {
       MCO.fetchJSON(STATIONS_META),
       MCO.fetchJSON(STATUS_META),
       // The kit drops every view this audience may not see at parse time:
-      // the public gets N, E, S, W from 2026-10-22; staff get the rest too.
-      P.load(internalView ? { internal: true, since: INTERNAL_SINCE } : {}),
+      // the public gets N, E, S, W over the full history; staff get the rest too.
+      P.load(internalView ? { internal: true, since: PHOTOS_MIN_DATE }
+                          : { fullHistory: true, since: PHOTOS_MIN_DATE }),
     ]);
   } catch (err) {
     console.error(err);
