@@ -35,19 +35,22 @@ const DASH_URL        = (s) => `https://mesonet.climate.umt.edu/dash/${s}`;
 const KIT_ASSETS      = "https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/assets/";
 const WORDMARK_URL    = (onLight) => `${KIT_ASSETS}mco-wordmark-on-${onLight ? 'light' : 'dark'}.svg`;
 
-const DIR_ORDER  = ["N", "S", "E", "W", "SNOW", "SSNOW", "PLUVIO", "NS", "SS"];
-const DIR_LABELS = { N: "North", S: "South", E: "East", W: "West", SNOW: "Snow", SSNOW: "South Snow",
-                     PLUVIO: "Pluvio", NS: "North Sky", SS: "South Sky" };
+const DIR_ORDER  = ["N", "S", "E", "W", "SNOW", "NSNOW", "SSNOW", "PLUVIO", "SOLAR", "NS", "SS"];
+const DIR_LABELS = { N: "North", S: "South", E: "East", W: "West", SNOW: "Snow", NSNOW: "North Snow",
+                     SSNOW: "South Snow", PLUVIO: "Pluvio", SOLAR: "Solar", NS: "North Sky", SS: "South Sky" };
 // Segment text where the bare token would read as shouting; the rest show the token.
-const SEG_TEXT   = { SNOW: "Snow", SSNOW: "S Snow", PLUVIO: "Pluvio" };
-const DEFAULT_DIR = "W";
+const SEG_TEXT   = { SNOW: "Snow", NSNOW: "N Snow", SSNOW: "S Snow", PLUVIO: "Pluvio", SOLAR: "Solar" };
+const DEFAULT_DIR = "N";
 // Schedule tokens that are camera housekeeping, not views: dropped at parse time,
 // so they never reach the direction controls, the gallery, or the slot counts.
 // PARK is the PTZ's rest preset between patrols.
 const HIDDEN_DIRS = new Set(["PARK"]);
-// Instrument views (snow stakes, the Pluvio gauge) are for staff: shown only in
-// the internal view, otherwise dropped at parse time exactly like HIDDEN_DIRS.
-const INTERNAL_DIRS = new Set(["SNOW", "SSNOW", "PLUVIO"]);
+// The public views are the four cardinal directions, and nothing else. Every
+// other token (snow stakes, the Pluvio gauge, solar, the retired sky cameras, and
+// any view the schedule adds later) is for staff: shown only in the internal
+// view, otherwise dropped at parse time exactly like HIDDEN_DIRS. An allowlist,
+// so a new schedule token can't leak into the public controls.
+const PUBLIC_DIRS = new Set(["N", "S", "E", "W"]);
 // Curated labels win over the schedule's `view` names (which are literally "NS"/
 // "SS" for the sky cameras); a token the kit has never seen falls back to them.
 function dirLabel(d) { return DIR_LABELS[d] || _viewNames[d] || d; }
@@ -173,7 +176,7 @@ const kbdShortcuts = getLower('kbd') !== 'off';
 // in it. Re-emitted by updateUrl so it sticks while browsing and in shared links.
 const internalView = getLower('view') === 'internal' ||
   (urlParams.has('internal') && !['', '0', 'false', 'no', 'off'].includes(getLower('internal')));
-const isDroppedDir = (token) => HIDDEN_DIRS.has(token) || (!internalView && INTERNAL_DIRS.has(token));
+const isDroppedDir = (token) => HIDDEN_DIRS.has(token) || (!internalView && !PUBLIC_DIRS.has(token));
 
 // Headless export: ?export=light|dark forces the theme before the map is built.
 // Set directly (not MCO.setTheme) so a CI screenshot run never persists a theme.
@@ -642,8 +645,8 @@ async function loadData() {
   // Parse the schedule once. `from`/`until` carry explicit offsets, so Date.parse
   // is exact and DST-agnostic; every slot a view shoots is kept (which ones the
   // menu offers is decided per date by slotsForDate), and a view with none is
-  // dropped, as is a HIDDEN_DIRS token (and, outside the internal view, an
-  // INTERNAL_DIRS one). Deliberately unused: `patterns` (see
+  // dropped, as is a HIDDEN_DIRS token (and, outside the internal view, any
+  // token not in PUBLIC_DIRS). Deliberately unused: `patterns` (see
   // thumbPhotoUrl), `zone` (MCO.TZ), `snap_max_seconds`.
   const tokens = new Set(), candidates = new Set();
   for (const [id, st] of Object.entries(sched.stations)) {
