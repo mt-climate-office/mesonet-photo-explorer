@@ -9,21 +9,19 @@
    the photo-mosaic machinery (cover-crop + LRU cache, one image source per
    station cell), the gallery/lightbox dialogs and the branded PNG export.
    Since kit 0.9.0 the date stepper (MCO.initStepper) and the direction
-   segments' <select> fallback (MCO.initSegmentedFallback) are the kit's.
+   segments' <select> fallback (MCO.initSegmentedFallback) are the kit's, and
+   since 0.14.0 so are the camera schedule, the slot and direction rules and
+   the date / time / direction controls (MCO.photos.initPhotoControls).
    ========================================================================== */
 (function () {
 'use strict';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const CLOUDFRONT_BASE = "https://data2.climate.umt.edu/mesonet";       // WebP photos, thumb + large
-// Backup: data2's CloudFront default domain serves the same paths. Swap it in
-// if data2's certificate lapses again (the CSP already allows both).
-// const CLOUDFRONT_BASE = "https://d1s8jav5n0eyyf.cloudfront.net/mesonet";
-// What each station photographs, at which Mountain wall-clock slots, since when
-// — published by the mesonet-cameras repo (`mesocam rollout publish`), replacing
-// the Airtable-fed /api/v2/photos list that had drifted from the cameras.
-const SCHEDULE_URL    = `${CLOUDFRONT_BASE}/photos/schedule/schedule.json`;
-const SCHEDULE_SCHEMA = 1;
+// Station photos (the camera schedule, slots, directions, frame URLs and the
+// date / time / direction controls) are the kit's MCO.photos (0.14.0), which
+// reads data2.climate.umt.edu. This app keeps the station join, the mosaic,
+// the landing-slot probe, the gallery and the export.
+const P = MCO.photos;
 const STATIONS_META   = "https://mesonet2.climate.umt.edu/api/stations?type=json";
 const STATUS_META     = "https://mesonet2.climate.umt.edu/api/stations/status?type=json";
 const GRID_URL        = "grid.geojson";
@@ -32,47 +30,24 @@ const DASH_URL        = (s) => `https://mesonet.climate.umt.edu/dash/${s}`;
 // exports draw from the kit, never climate.umt.edu), loaded with CORS so the
 // canvas stays exportable. KEEP the version in step with the kit tags in
 // index.html. -on-light / -on-dark is picked by the card's own background.
-const KIT_ASSETS      = "https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/assets/";
+const KIT_ASSETS      = "https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.15.0/assets/";
 const WORDMARK_URL    = (onLight) => `${KIT_ASSETS}mco-wordmark-on-${onLight ? 'light' : 'dark'}.svg`;
 
-const DIR_ORDER  = ["N", "S", "E", "W", "SNOW", "NSNOW", "SSNOW", "PLUVIO", "SOLAR", "NS", "SS"];
-const DIR_LABELS = { N: "North", S: "South", E: "East", W: "West", SNOW: "Snow", NSNOW: "North Snow",
-                     SSNOW: "South Snow", PLUVIO: "Pluvio", SOLAR: "Solar", NS: "North Sky", SS: "South Sky" };
-// Segment text where the bare token would read as shouting; the rest show the token.
-const SEG_TEXT   = { SNOW: "Snow", NSNOW: "N Snow", SSNOW: "S Snow", PLUVIO: "Pluvio", SOLAR: "Solar" };
-const DEFAULT_DIR = "N";
-// Schedule tokens that are camera housekeeping, not views: dropped at parse time,
-// so they never reach the direction controls, the gallery, or the slot counts.
-// PARK is the PTZ's rest preset between patrols.
-const HIDDEN_DIRS = new Set(["PARK"]);
-// The public views are the four cardinal directions, and nothing else. Every
-// other token (snow stakes, the Pluvio gauge, solar, the retired sky cameras, and
-// any view the schedule adds later) is for staff: shown only in the internal
-// view, otherwise dropped at parse time exactly like HIDDEN_DIRS. An allowlist,
-// so a new schedule token can't leak into the public controls.
-const PUBLIC_DIRS = new Set(["N", "S", "E", "W"]);
-// Curated labels win over the schedule's `view` names (which are literally "NS"/
-// "SS" for the sky cameras); a token the kit has never seen falls back to them.
-function dirLabel(d) { return DIR_LABELS[d] || _viewNames[d] || d; }
-
-// Earliest date the picker admits. The schedule's `first_month` reaches back to
-// 2016-12 for a few stations, but WebP coverage before this is sparse; this is
-// the network-wide start the old API reported, so landing behaviour is unchanged.
+// This tool keeps the full public history (website DECISIONS D16, kit 0.15.0
+// `fullHistory`): every date and all four directions, including North and
+// South from before 2026-10-21 16:00 MT, when they were aimed at the
+// pluviometer and the snow stake. (The kit's default 2026-10-22 start is for
+// the website's photo hero only.) Earliest date the picker admits, public and
+// staff alike: the schedule's `first_month` reaches back to 2016-12 for a few
+// stations, but WebP coverage before this is sparse; this is the
+// network-wide start the old API reported.
 const PHOTOS_MIN_DATE = "2022-09-22";
 
 const SEARCH_FLY_ZOOM    = 8.5;
 const SEARCH_FLY_SPEED   = 1.4;
 const SEARCH_MAX_RESULTS = 8;
 
-// Processing lag: a slot's photos are assumed published this long after the
-// wall-clock slot. computeMaxTimestep and the Time menu's disabled state both
-// read it; the probe below covers the days the lag isn't flat.
-const SLOT_LAG_MINUTES = 30;
-// How far a "previous day with any slot" walk may go. The schedule has no gaps
-// in practice; this only stops a loop over a hypothetical sparse stretch.
-const SLOT_WALK_MAX_DAYS = 60;
-
-// Landing-slot fallback. computeMaxTimestep assumes a flat processing lag, but
+// Landing-slot fallback. MCO.photos.latestSlot assumes a flat processing lag, but
 // the mirror job publishes ~12×/day, so the newest expected slot is empty right
 // after it turns over and then fills in gradually. Probe a spread sample of
 // stations and pick the newest slot that is actually worth showing.
@@ -114,31 +89,13 @@ const infoModal      = document.getElementById("info-modal");
 const modal          = document.getElementById("modal");
 const lightbox       = document.getElementById("lightbox");
 
-// Which Mountain wall-clock times the Time <select> offers is decided per
-// selected date from the schedule (slotsForDate, below). The static <option>s
-// in index.html are only a placeholder — what the controls show until the
-// schedule has loaded, or if it never does. Slot values are "HH:MM:SS"
-// throughout this app; the schedule writes "HH:MM".
-const _placeholderSlots = [...timeInput.options].map(o => o.value);
-
 // Screen-reader announcements for what the WebGL mosaic shows (HOUSE-STYLE
 // §5.1) go through the kit's one page announcer, MCO.announce (polite) — the
 // hidden-table twin below carries the detail.
 
 // ── State ─────────────────────────────────────────────────────────────────────
-// Parsed schedule.json. Period bounds are epoch ms (`until` Infinity = current);
-// each view maps a direction token to the Set of "HH:MM" slots it shoots, and
-// `slots` is that period's union across views (what slotsForDate counts).
-let _schedule  = {};                  // stationId → { firstDate: "YYYY-MM-DD", periods: [{ from, until, views: Map<token, Set<"HH:MM">>, slots: Set<"HH:MM"> }] }
-let _slotCandidates = [];             // every "HH:MM" any view has ever shot, sorted — slotsForDate's candidate list
-const _slotsByDate  = new Map();      // "YYYY-MM-DD" → ["HH:MM:SS", …] the menu offers that day (slotsForDate memo)
-let _wantedTime  = null;              // "HH:MM:SS" the user or URL last chose explicitly; date changes resolve from it
-let _pendingRoll = null;              // { from, to, reason } — a time move not yet announced (hold-to-repeat batches them)
-let _allDirs   = [];                  // tokens present anywhere in the schedule, DIR_ORDER first, unknowns appended sorted
-let _shownDirs = [];                  // the subset of _allDirs the direction controls currently offer (dirsForSlot)
-let _wantedDir = null;                // token the user or URL last chose explicitly; slot changes resolve from it
-let _viewNames = {};                  // token → the schedule's `view` name (label fallback for tokens DIR_LABELS lacks)
-let currentDir;
+let _schedule = null;                 // MCO.photos schedule (loadData)
+let controls  = null;                 // MCO.photos.initPhotoControls handle (loadData)
 let showCounties;
 let map;
 let _activeFeatures = [];             // [{ station, name, coords:[4×[lng,lat]], centroid, id }]
@@ -153,7 +110,6 @@ let _refreshToken = 0;                // guards against stale async photo loads 
 let _hoveredId = null;
 let _photoState = new Map();          // station → true|false (has a photo for the current selection)
 let _lastAnnounced = '';
-let _dateSteppers = [];               // MCO.initStepper handles; refresh() after any date change (updateUrl)
 const _cropCache = new Map();         // thumb URL → cover-cropped data URL
 
 // ── URL state ─────────────────────────────────────────────────────────────────
@@ -161,10 +117,6 @@ const urlParams = MCO.urlParams();
 const getLower  = (k) => MCO.getParamLower(k, urlParams);
 
 const _initStation = getLower('station');
-
-// An explicit slot — a deep link, a shared URL, the export job — is never
-// silently moved by the landing-slot fallback below.
-const _slotPinnedByUrl = urlParams.has('date') || urlParams.has('time');
 
 // Single-character shortcuts need an opt-out (WCAG 2.1.4). Re-emitted on
 // replaceState so it sticks while browsing, but excluded from shared links.
@@ -176,7 +128,6 @@ const kbdShortcuts = getLower('kbd') !== 'off';
 // in it. Re-emitted by updateUrl so it sticks while browsing and in shared links.
 const internalView = getLower('view') === 'internal' ||
   (urlParams.has('internal') && !['', '0', 'false', 'no', 'off'].includes(getLower('internal')));
-const isDroppedDir = (token) => HIDDEN_DIRS.has(token) || (!internalView && !PUBLIC_DIRS.has(token));
 
 // Headless export: ?export=light|dark forces the theme before the map is built.
 // Set directly (not MCO.setTheme) so a CI screenshot run never persists a theme.
@@ -185,162 +136,18 @@ if (_exportParam === 'light' || _exportParam === 'dark') {
   document.documentElement.dataset.theme = _exportParam;
 }
 
-// ── Time helpers (Mountain Time — house convention for every stamp) ───────────
-// "HH:MM[:SS]" → "9:00 AM" / "12:00 PM": the one 12-hour formatter, shared by
-// the menu labels, the mosaic stamp, the toasts and the social meta.
-function slotLabel(hhmm) {
-  const [h, m] = hhmm.split(':').map(Number);
-  return `${h % 12 || 12}:${MCO.pad2(m)} ${h >= 12 ? 'PM' : 'AM'}`;
+// ── Selection helpers ─────────────────────────────────────────────────────────
+// The selected slot: {date, time: "HH:MM", view, ms} from the kit's controls,
+// where ms is the slot's UTC instant. Null until the schedule has loaded.
+function sel() { return controls ? controls.state() : null; }
+// "Oct 22, 2026 3:00 PM MT": every stamp a person reads is Mountain Time.
+function stampOf(st) { return `${P.stampLabel(st.ms)} MT`; }
+// Was `station` scheduled to shoot `dir` at the selected slot (period-aware)?
+function shotAt(station, dir, st = sel()) {
+  return !!(st && st.time && P.isShotAt(_schedule, station, dir, st.date, st.time));
 }
-function slotMinutes(hhmm) { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; }
-function asSlotValue(hhmm) { return hhmm.length === 5 ? `${hhmm}:00` : hhmm; }
-// ?time= accepts "9", "09", "9:30" or "09:30:00"; anything else is ignored.
-function normaliseTimeParam(v) {
-  const m = /^(\d{1,2})(?::(\d{2}))?(?::(\d{2}))?$/.exec(String(v ?? '').trim());
-  if (!m || +m[1] > 23) return null;
-  return `${MCO.pad2(+m[1])}:${m[2] || '00'}:${m[3] || '00'}`;
-}
-
-// The slots the Time menu offers on `dateStr`: those scheduled — period-aware,
-// at that date's UTC instant of each slot — by at least half of the stations
-// shooting anything that day. A majority rather than a union, so the Sep 2026
-// hourly pilot (≈30 cameras for nine days) doesn't turn the menu into 24
-// entries while the other ~120 cameras shot 09:00/15:00. Memoised per date (it
-// doesn't depend on the clock). Slot-outer/station-inner on purpose: the one
-// mtInstantMs call per candidate is then the whole Intl cost of a date.
-// Before the schedule is parsed, the placeholder options stand in.
-// (arrivals.json, the audit job's expected-vs-received snapshot, is not read:
-// as published it is a stale two-day window. Were it live, this is where a
-// "slot has actually landed" signal would join the schedule.)
-function slotsForDate(dateStr) {
-  if (!_slotCandidates.length) return _placeholderSlots.slice();
-  let slots = _slotsByDate.get(dateStr);
-  if (slots) return slots;
-  const ids = Object.keys(_schedule).filter(id => dateStr >= _schedule[id].firstDate);
-  const shooting = new Set();          // stations with ≥1 slot that day → the denominator
-  const counts = [];                   // [ "HH:MM", stations ]
-  for (const hhmm of _slotCandidates) {
-    const dt = `${dateStr}T${hhmm}:00`;
-    const t  = mtInstantMs(dt);
-    // A wall-clock time that doesn't exist that day (02:00 on the spring-forward
-    // day) or is ambiguous (01:00 on the fall-back day) reads back as something
-    // else — skip it rather than key photos by a name no camera shot under.
-    if (mtWallClock(t) !== dt) continue;
-    let n = 0;
-    for (const id of ids) {
-      if (_schedule[id].periods.some(p => t >= p.from && t < p.until && p.slots.has(hhmm))) {
-        n++; shooting.add(id);
-      }
-    }
-    if (n) counts.push([hhmm, n]);
-  }
-  const need = Math.ceil(shooting.size / 2);
-  slots = counts.filter(([, n]) => n >= need).map(([h]) => asSlotValue(h));
-  // A sparse early-schedule day where nothing reaches a majority still needs a
-  // menu: offer whatever anyone shot. Never leave the <select> empty — every
-  // stamp in the app is built from its value.
-  if (!slots.length) slots = counts.map(([h]) => asSlotValue(h));
-  if (!slots.length) slots = _placeholderSlots.slice();
-  _slotsByDate.set(dateStr, slots);
-  return slots;
-}
-
-// Last offered slot of the newest day before `dateStr` that offers any.
-function lastSlotBefore(dateStr) {
-  let date = dateStr;
-  for (let i = 0; i < SLOT_WALK_MAX_DAYS; i++) {
-    date = MCO.shiftDate(date, -1);
-    if (date < PHOTOS_MIN_DATE) break;
-    const slots = slotsForDate(date);
-    if (slots.length) return { date, time: slots[slots.length - 1] };
-  }
-  return null;
-}
-
-// Latest photo timestep whose slot the processing lag has cleared: the newest
-// of today's slots at or before now − lag, else the last slot of the day
-// before. Also the picker's forward bound — refreshed on every call, so today
-// is unreachable until its first slot has cleared (no menu of all-disabled
-// entries) and a tab left open past that moment can step forward into it.
-function computeMaxTimestep(lagMinutes = SLOT_LAG_MINUTES) {
-  const today  = MCO.todayMT();
-  const thresh = slotMinutes(MCO.hhmmNowMT()) - lagMinutes;
-  const cleared = slotsForDate(today).filter(t => slotMinutes(t) <= thresh);
-  const ts = cleared.length
-    ? { date: today, time: cleared[cleared.length - 1] }
-    : (lastSlotBefore(today) || { date: today, time: slotsForDate(today)[0] });
-  dateInput.max = ts.date;
-  return ts;
-}
-
-// The slot immediately before {dateStr, timeStr}: the previous offered time that
-// day, or the last offered time of the nearest earlier day with any.
-function previousSlot(dateStr, timeStr) {
-  const times = slotsForDate(dateStr);
-  const i = times.indexOf(timeStr);
-  if (i > 0)   return { date: dateStr, time: times[i - 1] };
-  if (i === 0) return lastSlotBefore(dateStr);
-  return null;   // unknown time value — don't guess
-}
-
-// Rebuild the Time menu for `dateStr`. Today's slots the lag hasn't cleared yet
-// stay listed — the cadence is worth seeing — but disabled, with the reason in
-// the label so it is spoken as well as greyed. The DOM is touched only when the
-// rendered list would actually change (iOS's native picker loses its place
-// otherwise), and options only ever become enabled over time, so a selection
-// made earlier stays valid.
-function syncTimeOptions(dateStr) {
-  const today  = MCO.todayMT();
-  const thresh = dateStr < today ? Infinity
-               : dateStr > today ? -Infinity
-               : slotMinutes(MCO.hhmmNowMT()) - SLOT_LAG_MINUTES;
-  const want = slotsForDate(dateStr).map(t => ({ value: t, disabled: slotMinutes(t) > thresh }));
-  const have = [...timeInput.options].map(o => ({ value: o.value, disabled: o.disabled }));
-  if (JSON.stringify(want) === JSON.stringify(have)) return;
-  const selected = timeInput.value;
-  timeInput.replaceChildren(...want.map(({ value, disabled }) => {
-    const o = document.createElement('option');
-    o.value = value;
-    o.disabled = disabled;
-    o.textContent = slotLabel(value);   // disabled styling alone marks a pending slot
-    return o;
-  }));
-  timeInput.value = selected;   // "" if it's gone — resolveTimeForDate always follows
-}
-
-// Which of the menu's enabled entries to show, given what was wanted: the
-// wanted slot if it's there; else the next later one that day; else the last.
-// `null` (a bare ?date=) means the day's first slot. `reason` tells a wanted
-// slot that was never scheduled that day ('unscheduled') from one that is
-// listed but not cleared yet ('pending').
-function resolveTimeForDate(wantedTime) {
-  const opts    = [...timeInput.options];
-  const enabled = opts.filter(o => !o.disabled).map(o => o.value);
-  if (!enabled.length) {                 // unreachable once the date is clamped to computeMaxTimestep().date
-    const ts = computeMaxTimestep();
-    return { time: ts.time, moved: wantedTime !== ts.time, reason: 'pending' };
-  }
-  if (wantedTime == null || enabled.includes(wantedTime)) {
-    return { time: wantedTime ?? enabled[0], moved: false, reason: null };
-  }
-  const later = enabled.find(t => t > wantedTime);   // zero-padded HH:MM:SS compare
-  return {
-    time: later ?? enabled[enabled.length - 1],
-    moved: true,
-    reason: opts.some(o => o.value === wantedTime) ? 'pending' : 'unscheduled',
-  };
-}
-function rollMessage({ from, to, reason }) {
-  return reason === 'pending'
-    ? `${slotLabel(from)} isn't available yet — showing ${slotLabel(to)}.`
-    : `Time adjusted to ${slotLabel(to)} — ${slotLabel(from)} isn't scheduled on ${MCO.formatDateStr(dateInput.value)}.`;
-}
-// Announce a batched time move (a hold-to-repeat run collects them; see stepDate).
-function flushRoll() {
-  if (!_pendingRoll) return;
-  if (!_exportParam) MCO.showToast(rollMessage(_pendingRoll), 5000);
-  _pendingRoll = null;
-}
+function thumbUrl(station, dir, st = sel()) { return P.frameUrl(_schedule, station, dir, st.ms, 'thumb'); }
+function largeUrl(station, dir, st = sel()) { return P.frameUrl(_schedule, station, dir, st.ms, 'large'); }
 
 // Evenly-spaced sample, so a probe can't land entirely in one corner of the
 // state (the mirror publishes per station, and outages can be regional).
@@ -352,102 +159,6 @@ function pickSpread(arr, n) {
   return out;
 }
 
-function getSelectedDateTime() { return `${dateInput.value}T${timeInput.value}`; }
-
-// Photo filenames stamp the capture instant in UTC, but the capture schedule —
-// and every control in this app — is a Montana wall clock, so the stamp runs
-// −6h in MDT and −7h in MST and the conversion has to be DST-aware. Verified
-// against the store in both seasons: 09:00 MT is …15:00:00Z after the March
-// change and …16:00:00Z before it.
-const _mtParts = new Intl.DateTimeFormat('en-US', {
-  timeZone: MCO.TZ, hourCycle: 'h23',
-  year: 'numeric', month: '2-digit', day: '2-digit',
-  hour: '2-digit', minute: '2-digit', second: '2-digit',
-});
-// How far MT sits from UTC at the instant `t`, in ms.
-function mtOffsetMs(t) {
-  const p = {};
-  for (const { type, value } of _mtParts.formatToParts(new Date(t))) p[type] = value;
-  return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second) - t;
-}
-// MT wall clock ("2026-09-08T09:00:00") → the UTC instant it names, in epoch ms.
-// Two passes, because the first offset is read at the wrong instant whenever the
-// naive guess straddles a DST transition; re-reading at the corrected instant
-// settles it. No ambiguous-hour handling: the offered slots sit hours clear of
-// the 02:00 MT change, and slotsForDate drops any hourly-period candidate that
-// doesn't round-trip through mtWallClock. Memoised one-deep: a mosaic refresh
-// or a gallery step asks about the same slot hundreds of times in a row.
-let _lastInstant = { dtStr: null, ms: 0 };
-function mtInstantMs(dtStr) {
-  if (dtStr === _lastInstant.dtStr) return _lastInstant.ms;
-  const [date, time] = dtStr.split('T');
-  const [Y, M, D]    = date.split('-').map(Number);
-  const [h, m, s]    = time.split(':').map(Number);
-  const wall = Date.UTC(Y, M - 1, D, h, m, s || 0);
-  const o1   = mtOffsetMs(wall);
-  const t1   = wall - o1;
-  const t    = mtOffsetMs(t1) === o1 ? t1 : wall - mtOffsetMs(t1);
-  _lastInstant = { dtStr, ms: t };
-  return t;
-}
-// The inverse: epoch ms → the MT wall clock that names it, "YYYY-MM-DDTHH:MM:SS".
-function mtWallClock(t) {
-  const p = {};
-  for (const { type, value } of _mtParts.formatToParts(new Date(t))) p[type] = value;
-  return `${p.year}-${p.month}-${p.day}T${MCO.pad2(+p.hour % 24)}:${p.minute}:${p.second}`;
-}
-// …and as the basic-format ISO 8601 stamp the photo filenames carry:
-// "2026-09-08T09:00:00" → "20260908T150000Z".
-function utcStamp(dtStr) {
-  return new Date(mtInstantMs(dtStr)).toISOString().replace(/[-:]/g, '').replace('.000', '');
-}
-
-// Key layout: <station>_<TOKEN>_<slot as UTC>.webp under photos/webp/{thumb,large}/.
-// Kept hardcoded rather than templated from schedule.json's `patterns` — the
-// verify harness classifies missing-photo 404s by this URL shape — so the two
-// must be kept in agreement by hand if the store ever moves.
-// 320×180 — the mosaic crop source and the gallery grid.
-function thumbPhotoUrl(station, dtStr, direction) {
-  return `${CLOUDFRONT_BASE}/photos/webp/thumb/${station}/${station}_${direction}_${utcStamp(dtStr)}.webp`;
-}
-// 1920×1080 — the lightbox only. Replaces the raw JPG the old layout served here.
-function largePhotoUrl(station, dtStr, direction) {
-  return `${CLOUDFRONT_BASE}/photos/webp/large/${station}/${station}_${direction}_${utcStamp(dtStr)}.webp`;
-}
-// The selected slot is a Mountain-Time wall clock, so it's formatted from its
-// parts rather than parsed as an instant — but it still carries the MT label.
-function formatDisplayTimestamp(dtStr) {
-  const [date, time] = dtStr.split("T");
-  return `${date} ${slotLabel(time)} MT`;
-}
-// True when `station` was scheduled to shoot `dir` at the Mountain wall-clock slot
-// dtStr ("YYYY-MM-DDTHH:MM:SS") AND the store's coverage had begun. Period-aware:
-// the slot's instant picks the schedule period, so a camera moved mid-day shows
-// its old views at 09:00 and its new ones at 15:00, and history renders what
-// was actually shot rather than the current plan.
-function isValidForSlot(station, dir, dtStr) {
-  const s = _schedule[station];
-  if (!s || dtStr.slice(0, 10) < s.firstDate) return false;
-  const hhmm = dtStr.slice(11, 16);
-  const t = mtInstantMs(dtStr);
-  return s.periods.some(p => t >= p.from && t < p.until && p.views.get(dir)?.has(hhmm));
-}
-
-// ── Date / direction initial values (URL > localStorage > default) ────────────
-// Provisional, against the placeholder options: loadData() settles the slot for
-// real once the schedule is parsed (and if the load fails, the controls at
-// least read sensibly). A ?time= is the sticky preference from the start; a
-// bare ?date= leaves it null so that day's first slot wins.
-const _maxTs = computeMaxTimestep();
-dateInput.value = urlParams.get("date") || _maxTs.date;
-const _timeParam = normaliseTimeParam(urlParams.get("time"));
-_wantedTime      = _timeParam;
-timeInput.value  = _timeParam ?? _maxTs.time;
-// Provisional: the real check is against the schedule's token set in loadData(),
-// which runs before anything renders — so a token DIR_ORDER has never heard of
-// isn't silently reset to DEFAULT_DIR here.
-const _dirParam = (getLower("dir") || "").toUpperCase();
-currentDir = /^[A-Z0-9]+$/.test(_dirParam) ? _dirParam : DEFAULT_DIR;
 // Persisted values are re-validated exactly like URL params — another MCO app
 // (or an older version of this one) shares the origin.
 const _overlayParam = getLower("overlay");
@@ -552,21 +263,26 @@ document.addEventListener('mco:themechange', () => {
 // hasn't published the current slot yet. Runs BEFORE the layers are added, so
 // the mosaic paints once at the right slot instead of flashing empty. Probed
 // crops land in _cropCache, so the render reuses them rather than refetching.
+// The kit decides what was scheduled; whether the photos have landed is only
+// known by asking for them, so the probe stays here.
 async function resolveInitialTimestep() {
-  if (_slotPinnedByUrl || !_activeFeatures.length) return;
-  const startDate = dateInput.value, startTime = timeInput.value;
-  let date = startDate, time = startTime;
+  if (!controls || controls.pinned || !_activeFeatures.length) return;
+  const start = controls.state();
+  if (!start.time) return;
+  const ids = _activeFeatures.map(f => f.station);
+  let date = start.date, time = start.time;
   let best = null;   // { date, time, hits } — newest wins ties
 
   for (let step = 0; step <= SLOT_FALLBACK_MAX; step++) {
-    const dt = `${date}T${time}`;
-    // Probe the direction this slot would actually show (see syncDirections).
-    const dir   = resolveDir(dirsForSlot(dt));
-    const valid = _activeFeatures.filter(f => isValidForSlot(f.station, dir, dt));
+    const st = { date, time, ms: P.toUtcMs(date, time) };
+    // Probe the direction this slot would actually show (the kit's rule:
+    // the wanted view if offered, else North, else the first).
+    const offered = P.viewsForSlot(_schedule, date, time, { stations: ids });
+    const dir   = P.resolveView(offered.length ? offered : _schedule.tokens, start.view).view;
+    const valid = dir ? _activeFeatures.filter(f => shotAt(f.station, dir, st)) : [];
     if (valid.length) {
       const sample = pickSpread(valid, SLOT_PROBE_SAMPLE);
-      const crops = await Promise.all(
-        sample.map(f => loadCrop(thumbPhotoUrl(f.station, dt, dir))));
+      const crops = await Promise.all(sample.map(f => loadCrop(thumbUrl(f.station, dir, st))));
       const hits = crops.filter(Boolean).length;
       // Good enough to show as-is — stop probing.
       if (hits >= Math.ceil(sample.length * SLOT_ACCEPT_RATIO)) {
@@ -577,8 +293,8 @@ async function resolveInitialTimestep() {
       // complete older one, but still beat showing nothing at all.
       if (!best || hits > best.hits) best = { date, time, hits };
     }
-    const prev = previousSlot(date, time);
-    if (!prev || (dateInput.min && prev.date < dateInput.min)) break;
+    const prev = P.previousSlot(_schedule, date, time);
+    if (!prev) break;
     date = prev.date; time = prev.time;
   }
 
@@ -586,16 +302,12 @@ async function resolveInitialTimestep() {
   // still read "now", and let the empty state (and the sr-table's "No photo"
   // rows) speak for themselves.
   if (!best || !best.hits) return;
-  if (best.date === startDate && best.time === startTime) return;
+  if (best.date === start.date && best.time === start.time) return;
 
-  dateInput.value = best.date;
-  syncTimeOptions(best.date);
-  timeInput.value = best.time;
-  _wantedTime     = best.time;
+  // Silent: the first URL write and the first paint follow in onMapLoad.
+  const landed = controls.set({ date: best.date, time: best.time }, { silent: true });
   if (!_exportParam) {
-    MCO.showToast(
-      `Showing photos from ${formatDisplayTimestamp(`${best.date}T${best.time}`)} — the most recent available.`,
-      5000);
+    MCO.showToast(`Showing the most recent photos, from ${stampOf(landed)}.`, 5000);
   }
 }
 
@@ -625,48 +337,23 @@ async function onMapLoad() {
 
 // ── Data load ─────────────────────────────────────────────────────────────────
 async function loadData() {
-  let grid, allStations, statusRows, sched;
+  let grid, allStations, statusRows;
   try {
-    [grid, allStations, statusRows, sched] = await Promise.all([
+    [grid, allStations, statusRows, _schedule] = await Promise.all([
       MCO.fetchJSON(GRID_URL),
       MCO.fetchJSON(STATIONS_META),
       MCO.fetchJSON(STATUS_META),
-      MCO.fetchJSON(SCHEDULE_URL),
+      // The kit drops every view this audience may not see at parse time:
+      // the public gets N, E, S, W over the full history; staff get the rest too.
+      P.load(internalView ? { internal: true, since: PHOTOS_MIN_DATE }
+                          : { fullHistory: true, since: PHOTOS_MIN_DATE }),
     ]);
-    if (!sched || sched.schema !== SCHEDULE_SCHEMA || typeof sched.stations !== 'object') {
-      throw new Error(`schedule.json: unexpected schema ${sched && sched.schema}`);
-    }
   } catch (err) {
     console.error(err);
+    _schedule = null;
     MCO.showToast("Failed to load map data. Please refresh.", 6000);
     return;
   }
-
-  // Parse the schedule once. `from`/`until` carry explicit offsets, so Date.parse
-  // is exact and DST-agnostic; every slot a view shoots is kept (which ones the
-  // menu offers is decided per date by slotsForDate), and a view with none is
-  // dropped, as is a HIDDEN_DIRS token (and, outside the internal view, any
-  // token not in PUBLIC_DIRS). Deliberately unused: `patterns` (see
-  // thumbPhotoUrl), `zone` (MCO.TZ), `snap_max_seconds`.
-  const tokens = new Set(), candidates = new Set();
-  for (const [id, st] of Object.entries(sched.stations)) {
-    const periods = (st.periods || []).map(p => {
-      const views = new Map(), slots = new Set();
-      for (const [token, v] of Object.entries(p.views || {})) {
-        const vs = new Set(v.slots_local || []);
-        if (!vs.size || isDroppedDir(token)) continue;
-        views.set(token, vs);
-        for (const s of vs) { slots.add(s); candidates.add(s); }
-        tokens.add(token);
-        _viewNames[token] ??= v.view;
-      }
-      return { from: Date.parse(p.from), until: p.until == null ? Infinity : Date.parse(p.until), views, slots };
-    }).filter(p => p.views.size).sort((a, b) => a.from - b.from);
-    if (!periods.length || !st.first_month) continue;
-    _schedule[id] = { firstDate: `${st.first_month}-01`, periods };
-  }
-  _slotCandidates = [...candidates].sort();
-  _slotsByDate.clear();
 
   // Assemble the live station set: active HydroMet stations that have photos,
   // each placed at its assigned grid cell (ace_grid) or the cell containing it.
@@ -678,7 +365,7 @@ async function loadData() {
   allStations.filter(s => s.sub_network === "HydroMet").forEach(s => {
     const st = statusByStation.get(s.station);
     if (!st || st.status !== "active") return;
-    if (!(s.station in _schedule))     return;
+    if (!_schedule.stations.has(s.station)) return;
     let cell = st.ace_grid ? cellByCode.get(normCell(st.ace_grid)) : null;
     if (!cell) cell = grid.features.find(f => pointInPolygon([s.longitude, s.latitude], f.geometry));
     if (!cell) return;
@@ -697,123 +384,103 @@ async function loadData() {
                           .sort((a, b) => a.name.localeCompare(b.name));
   _stationOrder     = feats.map(f => f.station).sort();
 
-  // Constrain the date picker, then settle the landing slot for real now that
-  // the schedule is known: no URL slot → the newest cleared slot (the probe in
-  // resolveInitialTimestep may still walk it back); ?date alone → that day's
-  // first slot; a ?time that day never shot → rolled forward, and said so.
-  dateInput.min = PHOTOS_MIN_DATE;
-  if (!_slotPinnedByUrl) {
-    const ts = computeMaxTimestep();
-    dateInput.value = ts.date;
-    _wantedTime     = ts.time;
-  }
-  _pendingRoll = clampDate() || _pendingRoll;
-  flushRoll();
-
-  // Build direction UI from every token the schedule has ever used, DIR_ORDER
-  // first so the segments keep their familiar order.
-
-  _allDirs = [
-    ...DIR_ORDER.filter(d => tokens.has(d)),
-    ...[...tokens].filter(d => !DIR_ORDER.includes(d)).sort(),
-  ];
-  if (!_allDirs.includes(currentDir)) currentDir = _allDirs.includes(DEFAULT_DIR) ? DEFAULT_DIR : _allDirs[0];
-  _wantedDir = currentDir;
-  syncDirections();
+  initControls();
 }
 
-// The directions the controls offer at slot `dtStr`: those at least one placed
-// station was scheduled to shoot then (period-aware, via isValidForSlot). So the
-// retired sky cameras' NS/SS appear only for slots some camera still shot them.
-// Never empty — a slot nobody shot keeps the full list rather than no controls.
-function dirsForSlot(dtStr) {
-  const dirs = _allDirs.filter(d => _activeFeatures.some(f => isValidForSlot(f.station, d, dtStr)));
-  return dirs.length ? dirs : _allDirs.slice();
+// ── Date / time / direction controls (kit: MCO.photos.initPhotoControls) ──────
+// The kit owns the group: the date bounds (the first public date, the newest
+// cleared slot), the Time menu built per date from the schedule (today's
+// slots that haven't cleared the processing lag are listed but disabled), the
+// wanted time and direction kept sticky across days, the radio fieldset of
+// directions and its <select> fallback, and the ▲/▼ day steppers (navbar and
+// rail). Initial state: ?date / ?time / ?dir (validated) > the latest slot,
+// North. Only directions some placed station shot at the selected slot are
+// offered. A move the visitor did not ask for (a date before photos start, a
+// time that day never offered or not in yet, a direction nobody shot) comes
+// back as a roll, toasted once after stepping settles. It does not write the
+// URL: updateUrl merges controls.params().
+//
+// The mosaic refresh waits until stepping stops, so a hold-to-repeat run
+// paints once, at the end: on pointer release for a press or hold, or after a
+// short pause for keyboard steps (key auto-repeat). A refresh mid-hold would
+// starve the kit's repeat timer — it decodes and crops ~150 photos on the
+// main thread.
+const STEP_SETTLE_MS = 250;
+let _stepSettle = null, _stepPending = false, _pointerHeld = false;
+function settleSteps() {
+  clearTimeout(_stepSettle); _stepSettle = null;
+  if (!_stepPending) return;
+  _stepPending = false;
+  refreshMapImages();
 }
-// Which offered direction to show: the wanted one if offered, else N, else the first.
-function resolveDir(dirs) {
-  return dirs.includes(_wantedDir) ? _wantedDir : dirs.includes(DEFAULT_DIR) ? DEFAULT_DIR : dirs[0];
-}
-// Fit the direction controls to the selected slot, moving off a direction the
-// slot doesn't offer (and back onto the wanted one when it returns). Called by
-// every render, so each date/time change lands here. Leaving the wanted
-// direction is toasted; returning to it is not.
-function syncDirections() {
-  const dirs = dirsForSlot(getSelectedDateTime());
-  const next = resolveDir(dirs);
-  const from = currentDir;
-  currentDir = next;
-  if (dirs.join() !== _shownDirs.join()) {
-    _shownDirs = dirs;
-    buildDirectionControls(dirs);
-  } else if (next !== from) {
-    reflectDirection();
-  }
-  if (next === from) return;
-  if (from === _wantedDir && !_exportParam) {
-    MCO.showToast(`No ${dirLabel(from)} photos at this time — showing ${dirLabel(next)}.`, 5000);
-  }
-  if (_mapReady) updateUrl();   // before that, map.on('load') publishes the first URL
+document.addEventListener('pointerdown', () => { _pointerHeld = true; }, true);
+for (const ev of ['pointerup', 'pointercancel']) {
+  document.addEventListener(ev, () => { _pointerHeld = false; settleSteps(); }, true);
 }
 
-// ── Direction controls (segmented buttons + narrow-screen <select>) ───────────
-// The two views of one choice are kept in step by the kit's
-// MCO.initSegmentedFallback: each mirrors the other, [hidden] goes on the one
-// not in use at the 1400px ladder edge, and focus crosses over when a resize
-// hides the focused one. The app only rebuilds the options per slot.
-// A segment's visible text is an abbreviation ("NS"); WCAG 2.5.3 wants the
-// accessible name to contain it, so the name starts with it whenever the full
-// label doesn't ("NS, North Sky"; "West" already starts with "W").
-function segText(dir) { return SEG_TEXT[dir] || dir; }
-function segName(dir) {
-  const text = segText(dir), full = dirLabel(dir);
-  return full.toLowerCase().startsWith(text.toLowerCase()) ? full : `${text}, ${full}`;
+// The kit hands over each move separately, in one flush (a clamped date and
+// a rolled time arrive together). One toast shows one message at a time, so
+// a flush is joined into a single toast rather than letting the last one
+// overwrite the rest. Not during ?export= (the headless preview job).
+let _rollMsgs = [], _rollFlush = null;
+function queueRollToast(r) {
+  if (_exportParam) return;
+  _rollMsgs.push(P.rollMessage(r));
+  if (_rollFlush) return;
+  _rollFlush = setTimeout(() => {
+    MCO.showToast(_rollMsgs.join(' '), 4000 + 2000 * _rollMsgs.length);
+    _rollMsgs = []; _rollFlush = null;
+  }, 0);
 }
-const dirFallback = MCO.initSegmentedFallback({
-  group: document.getElementById("dir-btns"),
-  select: document.getElementById("dir-select"),
-  // The 1400 label edge, not the kit's default 1060: this bar no longer fits
-  // its segments below it with the 0.10.0 lockup (index.html, Responsive).
-  mq: '(max-width: 1400px)',
-  onChange: (dir) => setDirection(dir),
-});
-function buildDirectionControls(allDirs) {
-  const dirBtnsEl   = document.getElementById("dir-btns");
-  const dirSelectEl = document.getElementById("dir-select");
-  dirBtnsEl.innerHTML = "";
-  dirSelectEl.innerHTML = "";
-  allDirs.forEach(dir => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "nav-btn seg-btn";
-    btn.dataset.value = dir;
-    btn.textContent = segText(dir);
-    btn.setAttribute("aria-label", segName(dir));
-    btn.setAttribute("aria-pressed", dir === currentDir ? "true" : "false");
-    dirBtnsEl.append(btn);
 
-    const opt = document.createElement("option");
-    opt.value = dir;
-    opt.textContent = dirLabel(dir);
-    opt.selected = dir === currentDir;
-    dirSelectEl.append(opt);
+function initControls() {
+  controls = P.initPhotoControls({
+    schedule: _schedule,
+    date: dateInput,
+    time: timeInput,
+    steppers: [
+      { prev: document.getElementById('btn-date-prev'), next: document.getElementById('btn-date-next') },
+      { prev: document.getElementById('btn-rail-prev'), next: document.getElementById('btn-rail-next') },
+    ],
+    views: { group: document.getElementById('dir-btns'), select: document.getElementById('dir-select') },
+    // The 1400 label edge, not the kit's default 1060: this bar no longer fits
+    // its segments below it with the 0.10.0 lockup (index.html, Responsive).
+    mq: '(max-width: 1400px)',
+    stations: _activeFeatures.map(f => f.station),
+    onRoll: queueRollToast,
+    onChange: (st, ch) => {
+      // The 'init' change fires inside initPhotoControls, before `controls`
+      // is assigned; onMapLoad renders and writes the first URL after it.
+      if (!controls || ch.source === 'init') return;
+      if (ch.source === 'step') {
+        updateUrl();
+        _stepPending = true;
+        clearTimeout(_stepSettle);
+        if (!_pointerHeld) _stepSettle = setTimeout(settleSteps, STEP_SETTLE_MS);
+        return;
+      }
+      updateUrl();
+      refreshMapImages();
+    },
   });
   updateRail();
 }
-function reflectDirection() {
-  dirFallback.set(currentDir);
-  updateRail();
+// A tab left open past a slot's lag: re-read the bounds and today's slots as
+// the menu is about to open (so 3:00 PM is selectable once it has cleared),
+// and when the tab comes back into view.
+for (const ev of ["focus", "pointerdown"]) {
+  timeInput.addEventListener(ev, () => { if (controls) controls.refresh(); });
 }
-function setDirection(dir) {
-  currentDir = _wantedDir = dir;
-  reflectDirection();
-  updateUrl();
-  refreshMapImages();
-}
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && controls) controls.refresh();
+});
+
 // Rail: one button steps through the directions the selected slot offers.
 document.getElementById("btn-rail-dir").addEventListener("click", () => {
-  const dirs = dirsForSlot(getSelectedDateTime());
-  setDirection(dirs[(dirs.indexOf(currentDir) + 1) % dirs.length]);
+  if (!controls) return;
+  const dirs = controls.views();
+  const cur = controls.state().view;
+  controls.set({ view: dirs[(dirs.indexOf(cur) + 1) % dirs.length] });
 });
 
 // ── Layers ────────────────────────────────────────────────────────────────────
@@ -932,12 +599,11 @@ function loadCrop(url) {
 // the date get their outline + click target; missing individual photos hide the
 // raster but keep the (empty, still-clickable) cell.
 function refreshMapImages() {
-  if (!map || !map.getLayer('cells-fill')) return;
-  syncDirections();
-  const dt = getSelectedDateTime();
+  const st = sel();
+  if (!map || !map.getLayer('cells-fill') || !st) return;
   const token = ++_refreshToken;
 
-  const valid = _activeFeatures.filter(f => isValidForSlot(f.station, currentDir, dt)).map(f => f.station);
+  const valid = _activeFeatures.filter(f => shotAt(f.station, st.view, st)).map(f => f.station);
   const validSet = new Set(valid);
   const filt = ['in', ['get', 'station'], ['literal', valid]];
   map.setFilter('cells-outline', filt);
@@ -975,7 +641,7 @@ function refreshMapImages() {
     if (!map.getLayer(lid)) continue;
     if (!validSet.has(f.station)) { map.setLayoutProperty(lid, 'visibility', 'none'); continue; }
     pending++;
-    const url = thumbPhotoUrl(f.station, dt, currentDir);
+    const url = thumbUrl(f.station, st.view, st);
     loadCrop(url).then((dataUrl) => {
       if (token !== _refreshToken) return;   // superseded by a newer refresh
       state.set(f.station, !!dataUrl);
@@ -1002,10 +668,10 @@ const srTwin = MCO.srTable({
   caption: 'Montana Mesonet station photos currently shown on the map',
   columns: [
     { key: 'station', label: 'Station', rowHeader: true, value: (f) => `${f.name} (${f.station})` },
-    { key: 'dir', label: 'Camera direction', value: () => dirLabel(currentDir) },
+    { key: 'dir', label: 'Camera direction', value: () => P.label(sel().view) },
     { key: 'photo', label: 'Photo (Mountain Time)', value: (f) => {
         const has = _photoState.get(f.station);   // null while its load is in flight
-        return has === null ? 'Loading…' : has ? formatDisplayTimestamp(getSelectedDateTime()) : 'No photo';
+        return has === null ? 'Loading…' : has ? stampOf(sel()) : 'No photo';
       } },
   ],
   rowKey: (f) => f.station,
@@ -1020,12 +686,13 @@ function renderSRTable() {
 // Announce the mosaic's contents. Deduped against the last announcement so a
 // theme switch (which re-adds layers and re-renders) stays silent.
 function announceMosaic() {
+  const st = sel();
   const total = _photoState.size;
   const withPhoto = [..._photoState.values()].filter(Boolean).length;
   const msg = total === 0
-    ? `No station photos available for ${formatDisplayTimestamp(getSelectedDateTime())}.`
-    : `${withPhoto} of ${total} stations showing ${dirLabel(currentDir)} photos ` +
-      `for ${formatDisplayTimestamp(getSelectedDateTime())}.`;
+    ? `No station photos available for ${stampOf(st)}.`
+    : `${withPhoto} of ${total} stations showing ${P.label(st.view)} photos ` +
+      `for ${stampOf(st)}.`;
   if (msg === _lastAnnounced) return;
   _lastAnnounced = msg;
   MCO.announce(msg);
@@ -1136,11 +803,11 @@ function restoreFocus(el) {
 // ~200 ids is trivial. The gallery includes any station with at least one
 // direction at the selected slot; the lightbox holds its direction fixed and
 // skips stations that lack it.
-function galleryStations(dtStr) {
-  return _stationOrder.filter(id => _allDirs.some(d => isValidForSlot(id, d, dtStr)));
+function galleryStations(st) {
+  return _stationOrder.filter(id => _schedule.tokens.some(d => shotAt(id, d, st)));
 }
-function lightboxStations(dir, dtStr) {
-  return _stationOrder.filter(id => isValidForSlot(id, dir, dtStr));
+function lightboxStations(dir, st) {
+  return _stationOrder.filter(id => shotAt(id, dir, st));
 }
 // Wrap-around step. A current id missing from the list (the date changed under
 // it) restarts from the first entry.
@@ -1166,10 +833,10 @@ let _galleryOpener = null;
 function renderGallery(stationId, { writeUrl = true } = {}) {
   const f = _featureByStation.get(stationId);
   if (!f) return 0;
-  const dtStr = getSelectedDateTime();
+  const st = sel();
 
   document.getElementById("modal-station-name").textContent = f.name;
-  document.getElementById("modal-timestamp").textContent    = formatDisplayTimestamp(dtStr);
+  document.getElementById("modal-timestamp").textContent    = stampOf(st);
 
   const dashWrap = document.getElementById("modal-dash-link");
   dashWrap.innerHTML = "";
@@ -1181,7 +848,7 @@ function renderGallery(stationId, { writeUrl = true } = {}) {
   dashWrap.append(dashLink);
 
   photoGrid.innerHTML = "";
-  const validDirs = _allDirs.filter(dir => isValidForSlot(stationId, dir, dtStr));
+  const validDirs = _schedule.tokens.filter(dir => shotAt(stationId, dir, st));
   const showEmpty = () => {
     const msg = document.createElement("p");
     msg.className = "photo-empty";
@@ -1190,7 +857,7 @@ function renderGallery(stationId, { writeUrl = true } = {}) {
   };
   if (validDirs.length === 0) showEmpty();
   validDirs.forEach(dir => {
-    const dirName = dirLabel(dir);
+    const dirName = P.label(dir);
     const card = document.createElement("div");
     card.className = "photo-card";
     // A real <button>, not a click handler on the <img>: the enlarge gesture
@@ -1202,7 +869,7 @@ function renderGallery(stationId, { writeUrl = true } = {}) {
     btn.setAttribute("aria-label", `${dirName} view of ${f.name} — enlarge`);
     const img = document.createElement("img");
     img.alt = "";
-    img.src = thumbPhotoUrl(stationId, dtStr, dir);
+    img.src = thumbUrl(stationId, dir, st);
     img.loading = "lazy";
     // A camera that was offline at this slot 404s: drop its card, and once the
     // last one is gone say so rather than leaving a silent empty grid — stepping
@@ -1244,7 +911,7 @@ function openModalByStation(stationId, opener, { push = true } = {}) {
 }
 // Focus stays where it is: the arrows live in the header, which isn't rebuilt.
 function stepGalleryStation(delta) {
-  const r = stepIn(galleryStations(getSelectedDateTime()), _selectedStation, delta);
+  const r = stepIn(galleryStations(sel()), _selectedStation, delta);
   if (!r) return;
   const n = renderGallery(r.id);
   MCO.announce(`Photo gallery for ${_featureByStation.get(r.id).name}, ${n} photos.${stepNote(r)}`);
@@ -1269,6 +936,22 @@ modal.addEventListener("close", () => {
 // Back / Forward (MCO.onUrlState): the only pushed entries are gallery
 // openings, so all a history move does here is close or (re)open the gallery.
 MCO.onUrlState((params) => {
+  // The slot is replaced, never pushed, so it only differs here if an entry
+  // was written by hand; follow it if so. Silent: the entry is already the
+  // URL, and a write here would land on the entry being left.
+  if (controls) {
+    const cur = controls.state();
+    const want = {
+      date: P.isDate(params.get('date')) ? params.get('date') : cur.date,
+      time: P.normalizeTime(params.get('time')) || cur.time,
+      view: (params.get('dir') || P.DEFAULT_VIEW).toUpperCase(),
+    };
+    if (want.date !== cur.date || want.time !== cur.time || want.view !== cur.view) {
+      controls.set(want, { silent: true });
+      updateRail();
+      refreshMapImages();
+    }
+  }
   const st = (params.get('station') || '').toLowerCase();
   if (st && _featureByStation.has(st)) {
     if (!modal.open) openModalByStation(st, null, { push: false });
@@ -1293,8 +976,8 @@ let _galleryStale    = false;   // the lightbox stepped away from the station th
 
 function showLightboxPhoto(stationId, dir) {
   const f = _featureByStation.get(stationId);
-  const caption = `${f.name} · ${formatDisplayTimestamp(getSelectedDateTime())} · ${dirLabel(dir)}`;
-  lightboxImg.src = largePhotoUrl(stationId, getSelectedDateTime(), dir);
+  const caption = `${f.name} · ${stampOf(sel())} · ${P.label(dir)}`;
+  lightboxImg.src = largeUrl(stationId, dir);
   lightboxImg.alt = caption;
   lightboxCaption.textContent = caption;
   _lightboxStation = stationId;
@@ -1310,7 +993,7 @@ function openLightbox(stationId, dir, opener) {
 // seven thumbnails per keypress would make stepping sluggish. Only the state
 // (selected station + URL) moves immediately.
 function stepLightboxStation(delta) {
-  const r = stepIn(lightboxStations(_lightboxDir, getSelectedDateTime()), _lightboxStation, delta);
+  const r = stepIn(lightboxStations(_lightboxDir, sel()), _lightboxStation, delta);
   if (!r) return;
   const caption = showLightboxPhoto(r.id, _lightboxDir);
   _selectedStation = r.id;
@@ -1380,90 +1063,6 @@ if (!seenIntro && !hasDeepLink) {
     MCO.lsSet(LS_SEEN, '1');
   }, 350);
 }
-
-// ── Date / time controls ──────────────────────────────────────────────────────
-dateInput.addEventListener("change", () => {
-  _pendingRoll = clampDate() || _pendingRoll;
-  flushRoll();
-  updateUrl();
-  refreshMapImages();
-});
-// A time the user picks is the sticky preference date changes resolve from.
-// No clamp here: disabled options can't be chosen, and rebuilding the menu from
-// inside its own change event would unsettle native pickers.
-timeInput.addEventListener("change", () => { _wantedTime = timeInput.value; updateUrl(); refreshMapImages(); });
-// A tab left open past a slot's lag: refresh the disabled state as the menu is
-// about to open, so 3:00 PM is selectable once it has cleared.
-for (const ev of ["focus", "pointerdown"]) {
-  timeInput.addEventListener(ev, () => { if (_slotCandidates.length) syncTimeOptions(dateInput.value); });
-}
-
-// Every date change funnels through here: clamp the date to [min, max], rebuild
-// the Time menu for it, and settle the time from the sticky preference. Returns
-// a { from, to, reason } roll when the shown time had to move off what was
-// wanted — the caller announces it, at once or once at the end of a
-// hold-to-repeat run — else null.
-function clampDate(wanted = _wantedTime) {
-  if (dateInput.min && dateInput.value < dateInput.min) {
-    dateInput.value = dateInput.min;
-    if (!_exportParam) MCO.showToast(`Photos begin ${dateInput.min} — date adjusted.`);
-  }
-  const maxTs = computeMaxTimestep();
-  if (dateInput.value > maxTs.date) {
-    dateInput.value = maxTs.date;
-    if (!_exportParam) MCO.showToast(`No photos yet for that date — showing ${MCO.formatDateStr(maxTs.date)}.`);
-  }
-  syncTimeOptions(dateInput.value);
-  const before = timeInput.value;
-  const { time, moved, reason } = resolveTimeForDate(wanted);
-  timeInput.value = time;
-  // Only a visible change is worth a toast: stepping through a 9/15 stretch
-  // while wanting noon re-resolves to 3 PM every day, but says so once.
-  return moved && time !== before ? { from: wanted, to: time, reason } : null;
-}
-// Day steppers: the navbar's ▲/▼ and the landscape rail's pair, both on the
-// kit's MCO.initStepper (click and Enter/Space step once, a held pointer
-// repeats, the buttons disable at the date bounds). The kit calls onStep per
-// step; the mosaic refresh and any time-roll toast wait until stepping stops,
-// so a hold-to-repeat run paints and speaks once, at the end: on pointer
-// release for a press or hold, or after a short pause for keyboard steps
-// (key auto-repeat). A refresh mid-hold would starve the kit's repeat timer —
-// it decodes and crops ~150 photos on the main thread.
-const STEP_SETTLE_MS = 250;
-let _stepSettle = null, _stepPending = false, _pointerHeld = false;
-function settleSteps() {
-  clearTimeout(_stepSettle); _stepSettle = null;
-  if (!_stepPending) return;
-  _stepPending = false;
-  flushRoll();
-  refreshMapImages();
-}
-document.addEventListener('pointerdown', () => { _pointerHeld = true; }, true);
-for (const ev of ['pointerup', 'pointercancel']) {
-  document.addEventListener(ev, () => { _pointerHeld = false; settleSteps(); }, true);
-}
-function canStepDate(delta) {
-  if (!dateInput.value) return false;
-  const next = MCO.shiftDate(dateInput.value, delta);
-  return delta < 0 ? !(dateInput.min && next < dateInput.min) : next <= computeMaxTimestep().date;
-}
-function stepDate(delta) {
-  dateInput.value = MCO.shiftDate(dateInput.value, delta);
-  _pendingRoll = clampDate() || _pendingRoll;
-  updateUrl();
-  _stepPending = true;
-  clearTimeout(_stepSettle);
-  if (!_pointerHeld) _stepSettle = setTimeout(settleSteps, STEP_SETTLE_MS);
-}
-// The kit keeps keyboard focus at a bound (0.11.2): disabling the focused
-// button hands focus to the pair's other one.
-_dateSteppers = [
-  ["btn-date-prev", "btn-date-next"],
-  ["btn-rail-prev", "btn-rail-next"],
-].map(([prev, next]) => MCO.initStepper({
-  prev: document.getElementById(prev), next: document.getElementById(next),
-  onStep: stepDate, canStep: canStepDate,
-}));
 
 // ── Boundaries toggle (county lines + tribal nations, together) ───────────────
 const BOUNDARY_LAYERS = ["counties-line", "tribal-fill", "tribal-line", "tribal-label"];
@@ -1535,14 +1134,15 @@ for (const id of ['btn-export', 'btn-info']) {
 function updateRail() {
   const railReadout = document.getElementById('rail-readout');
   const btnRailDir  = document.getElementById('btn-rail-dir');
-  if (!dateInput.value || !timeInput.value) return;
-  const d = new Date(`${dateInput.value}T12:00:00Z`);
+  const st = sel();
+  if (!st || !st.time) return;
+  const d = new Date(`${st.date}T12:00:00Z`);
   const md = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-  railReadout.replaceChildren(...[md, String(d.getUTCFullYear()), slotLabel(timeInput.value)].map(t => {
+  railReadout.replaceChildren(...[md, String(d.getUTCFullYear()), P.slotLabel(st.time)].map(t => {
     const span = document.createElement('span'); span.textContent = t; return span;
   }));
-  btnRailDir.textContent = segText(currentDir);
-  btnRailDir.setAttribute('aria-label', `Camera direction ${segName(currentDir)}. Switch to next direction`);
+  btnRailDir.textContent = P.shortLabel(st.view);
+  btnRailDir.setAttribute('aria-label', `Camera direction ${P.viewName(st.view)}. Switch to next direction`);
 }
 
 // ── Global keyboard shortcuts ─────────────────────────────────────────────────
@@ -1573,9 +1173,11 @@ window.addEventListener("keydown", (e) => {
 // kit's og-card. og:url follows the shared state; the canonical link stays the
 // static production one in index.html (no `canonical` passed — kit 0.11.2).
 function updateSocialMeta() {
-  const label = dirLabel(currentDir);
-  const dateFmt = MCO.formatDateStr(dateInput.value);
-  const timeFmt = `${slotLabel(timeInput.value)} MT`;
+  const st = sel();
+  if (!st || !st.time) return;
+  const label = P.label(st.view);
+  const dateFmt = MCO.formatDateStr(st.date);
+  const timeFmt = `${P.slotLabel(st.time)} MT`;
   const desc  = `Montana weather station photos for ${dateFmt} at ${timeFmt}, ${label} direction. ` +
                 `A service of the Montana Climate Office.`;
   MCO.setPageTitle({ short: 'Photos' });
@@ -1592,10 +1194,13 @@ function updateSocialMeta() {
 // is the latest available timestep, so a link without them would show a
 // different view tomorrow.
 function updateUrl({ push = false, state } = {}) {
-  // Hour only while every slot is on the hour ("time=15"); "HH:MM" otherwise.
-  const [h, m] = timeInput.value.split(":");
-  const params = { date: dateInput.value, time: +m ? `${h}:${m}` : parseInt(h) };
-  if (currentDir !== DEFAULT_DIR) params.dir = currentDir;
+  // date, time ("15" on the hour, "09:30" otherwise) and dir (only away from
+  // North) come from the kit's controls. Before the schedule has loaded (or
+  // if it failed to), the incoming ones are carried through unchanged.
+  const params = controls ? controls.params() : {};
+  if (!controls) {
+    for (const k of ['date', 'time', 'dir']) if (urlParams.has(k)) params[k] = urlParams.get(k);
+  }
   if (showCounties) params.overlay = "counties";
   // Clean-URL defaults (HOUSE-STYLE §4): the theme only when it differs from
   // the OS preference a visitor with no choice would get, and the camera only
@@ -1616,7 +1221,6 @@ function updateUrl({ push = false, state } = {}) {
   else MCO.replaceUrlState(params);
   updateSocialMeta();
   updateRail();
-  _dateSteppers.forEach(st => st.refresh());   // bounds may have moved
 }
 
 // ── Export (PNG with MCO branding) ────────────────────────────────────────────
@@ -1627,7 +1231,7 @@ function updateUrl({ push = false, state } = {}) {
 document.getElementById("btn-export").addEventListener("click", exportPNG);
 
 async function exportPNG() {
-  if (!_activeFeatures.length) { MCO.showToast("Map not loaded yet."); return; }
+  if (!_activeFeatures.length || !sel()) { MCO.showToast("Map not loaded yet."); return; }
   MCO.showToast("Exporting…");
   const W = EXPORT_W, H = EXPORT_H;
 
@@ -1651,8 +1255,8 @@ async function exportPNG() {
 
   try {
     await once(xm, 'load');
-    const dt = getSelectedDateTime();
-    const valid = _activeFeatures.filter(f => isValidForSlot(f.station, currentDir, dt));
+    const st = sel();
+    const valid = _activeFeatures.filter(f => shotAt(f.station, st.view, st));
     const paints = MCO.map.overlayPaints();
 
     if (xm.getLayer('boundary_county')) xm.setLayoutProperty('boundary_county', 'visibility', 'none');
@@ -1663,7 +1267,7 @@ async function exportPNG() {
                   layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: paints.stateLine });
 
     // Photos (awaited so the map is complete before capture)
-    const crops = await Promise.all(valid.map(f => loadCrop(thumbPhotoUrl(f.station, dt, currentDir))));
+    const crops = await Promise.all(valid.map(f => loadCrop(thumbUrl(f.station, st.view, st))));
     valid.forEach((f, i) => {
       if (!crops[i]) return;
       const sid = 'photo-' + f.station;
@@ -1712,7 +1316,7 @@ async function exportPNG() {
       if (!blob) { MCO.showToast("Export failed."); return; }
       const url = URL.createObjectURL(blob);
       const a = Object.assign(document.createElement("a"), {
-        href: url, download: `mesonet-photos-${dt.slice(0, 10)}-${currentDir}.png`,
+        href: url, download: `mesonet-photos-${st.date}-${st.view}.png`,
       });
       document.body.appendChild(a);
       a.click();
@@ -1797,7 +1401,8 @@ async function drawBranding(ctx, W, H) {
   ctx.fillText("Mesonet Photo Explorer", TX, midY - 13, TW);
   ctx.fillStyle = textMuted;
   ctx.font = `400 11px ${fontUi}`;
-  ctx.fillText(`${formatDisplayTimestamp(getSelectedDateTime())} · ${dirLabel(currentDir)}`, TX, midY + 3, TW);
+  const st = sel();
+  ctx.fillText(`${stampOf(st)} · ${P.label(st.view)}`, TX, midY + 3, TW);
   ctx.textAlign = "right";
   ctx.font = `italic 10px ${fontUi}`;
   ctx.fillText("climate.umt.edu", BX + BRAND_W - PAD, BY + BRAND_BOX_H - 9);

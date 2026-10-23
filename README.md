@@ -25,19 +25,24 @@ read live on each page load:
 |--------|----------|
 | `https://mesonet2.climate.umt.edu/api/stations` | Station list, network membership, names, coordinates |
 | `https://mesonet2.climate.umt.edu/api/stations/status` | Per-station status and grid-cell (`ace_grid`) assignment |
-| `https://data2.climate.umt.edu/mesonet/photos/schedule/schedule.json` | Per-station camera views, slot times, dated schedule periods, and first month with photos — published by [mesonet-cameras](https://github.com/mt-climate-office/mesonet-cameras) |
+| `https://data2.climate.umt.edu/mesonet/photos/schedule/schedule.json` (read by the kit's `MCO.photos`) | Per-station camera views, slot times, dated schedule periods, and first month with photos — published by [mesonet-cameras](https://github.com/mt-climate-office/mesonet-cameras) |
 | `https://data2.climate.umt.edu/mesonet/photos/webp/{thumb,large}/<station>/<station>_<TOKEN>_<UTC>.webp` | The WebP photo store itself (thumbnails for the mosaic, large frames for the lightbox) — also produced by mesonet-cameras |
 
 A station's cell appears once it is an active HydroMet station with photos online.
 **Because no station data is baked into the map, new stations show up automatically —
 nothing in this repo needs to be rebuilt when a station is added or removed.**
 
-The schedule's dated periods make history render what was actually shot: a moved camera
-shows its old views before the move and its new ones after. The Time menu is built from the
-same schedule for whichever date is selected: it offers the Mountain Time slots that at least
-half of the cameras shot that day (09:00 and 15:00 before 20 September 2026; 09:00, 12:00
-and 15:00 since), so a change of cadence upstream appears here without a code change. If the
-chosen hour wasn't shot on a day, the next one that was is shown.
+Reading the schedule is the shared kit's job: `MCO.photos` in
+[mco-web-style](https://github.com/mt-climate-office/mco-web-style) (0.14.0+) parses it, builds
+the Time menu for whichever date is selected (the Mountain Time slots at least half of the
+cameras shot that day, so a change of cadence upstream appears here without a code change),
+decides which directions are offered, and runs the date / time / direction controls. If the
+chosen time wasn't shot on a day, the next one that was is shown, and the page says so.
+
+The public view shows North, East, South and West over the full archive (from 22 September
+2022), passing the kit's `fullHistory` option. Before the afternoon of 21 October 2026, "North"
+and "South" were aimed at the rain gauge and the snow stake; they are still shown, as they
+always were. Staff can see the instrument views with `?internal=1`.
 
 **This repo owns no photo processing and no AWS resources.** The capture, WebP rendering
 and schedule publishing live in
