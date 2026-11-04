@@ -31,7 +31,7 @@ const DASH_URL        = (s) => `https://mesonet.climate.umt.edu/dash/${s}`;
 // exports draw from the kit, never climate.umt.edu), loaded with CORS so the
 // canvas stays exportable. KEEP the version in step with the kit tags in
 // index.html. -on-light / -on-dark is picked by the card's own background.
-const KIT_ASSETS      = "https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.0/assets/";
+const KIT_ASSETS      = "https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.1/assets/";
 const WORDMARK_URL    = (onLight) => `${KIT_ASSETS}mco-wordmark-on-${onLight ? 'light' : 'dark'}.svg`;
 
 // This tool keeps the full public history (website DECISIONS D16, kit 0.15.0
@@ -1170,9 +1170,9 @@ const navRail = MCO.initNavRail({
 for (const id of ['btn-export', 'btn-info']) {
   document.getElementById(id).addEventListener('click', () => navRail.close({ restoreFocus: false }));
 }
-// The bar's height as --chrome-h, so the end-docked sheet starts below it
-// rather than over the navbar (the bar is in flow, not .is-sticky, so the kit
-// doesn't publish it on its own). The rail zeroes it at short landscape.
+// The bar's height as --chrome-h, which the kit's phone bottom sheet keeps
+// clear of (its full-detent max-height). The end-docked sheet measures the
+// bar itself since kit 0.21.1. The rail zeroes it at short landscape.
 MCO.metrics.observe('--chrome-h', document.getElementById('navbar'));
 
 // Date/time/direction at a glance between the bar's day steppers, since the

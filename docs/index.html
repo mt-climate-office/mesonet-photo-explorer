@@ -40,11 +40,11 @@
   <!-- Favicons / app icons: hot-linked from the pinned kit tag (kit 0.9.0+,
        decided 2026-10-08) so they version with the kit and can't drift. The
        navbar logo stays vendored (assets/mco-logo.png). -->
-  <link rel="icon" type="image/png" sizes="32x32" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.0/assets/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.0/assets/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.0/assets/apple-touch-icon.png">
-  <link rel="icon" type="image/png" sizes="192x192" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.0/assets/icon-192.png">
-  <link rel="icon" type="image/png" sizes="512x512" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.0/assets/icon-512.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.1/assets/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.1/assets/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.1/assets/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.1/assets/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.1/assets/icon-512.png">
 
   <!-- Open Graph / social sharing. Canonical on the production host (the
        Pages origin is only the reverse proxy's upstream). The card image is
@@ -97,8 +97,8 @@
   <!-- House fonts: kit-hosted (mco-web-style 0.7.0+), declared in mco-theme.css.
        Preloaded so the first frame is already in Outfit — no system-font flash.
        Same @version as the theme CSS; crossorigin is required on font preloads. -->
-  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.0/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.0/fonts/space-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.1/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.1/fonts/space-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
   <!-- MapLibre GL 6.x (mco-web-style snippets/head.html). ES modules only:
        mco-map.js imports it (MCO.map.loadMapLibre), and this import map carries
        the SRI hashes for the entry and its shared chunk. Keep it ONE LINE, byte
@@ -116,8 +116,8 @@
         crossorigin="anonymous">
   <!-- mco-web-style: tokens (3 themes), a11y utilities, navbar/toast/tooltip/
        modal shells, MapLibre polish. Pinned + SRI per house policy. -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.0/theme/mco-theme.css"
-        integrity="sha384-R5H+mIUe48yOTRQovin+qNSVBmsBzAEBvwcntc2pK76coeVYeXRYI0/rKAtFcHCo"
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.1/theme/mco-theme.css"
+        integrity="sha384-5AYcUgLLXlsD3HOobKS/jj+F5/NGNGtLFcidyU/qaiRWYN3AwClJa42Y4KaZXajf"
         crossorigin="anonymous">
 
   <style>
@@ -210,13 +210,6 @@
     /* Wide enough for two photo columns when end-docked (the kit's default
        360px fits one). On compact the kit sizes it to the viewport. */
     #station-sheet { --sheet-w: 420px; }
-    /* kit-override: the end-docked sheet covers the map's right edge, where
-       the zoom group and the attribution sit, so they move beside it while
-       it is open (the kit's autolift covers only the compact bottom sheet).
-       Same width as the sheet: min(--sheet-w, 40vw). */
-    html:not(.is-compact) body:has(> #station-sheet[data-state="full"]) :is(.maplibregl-ctrl-top-right, .maplibregl-ctrl-bottom-right) {
-      right: min(420px, 40vw);
-    }
     .sheet-meta { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.75rem; }
     .sheet-stamp { margin: 0; font-size: 0.78rem; color: var(--text-muted); }
     .sheet-step { display: flex; gap: 0.35rem; flex-shrink: 0; }
@@ -625,16 +618,16 @@
 
 <!-- mco-web-style (window.MCO / MCO.map). MapLibre has no script tag any
      more: mco-map.js imports it on demand (MCO.map.loadMapLibre). -->
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.0/core/mco-core.js"
-        integrity="sha384-eHbZuRPKBgG8dW2fo3mGSf4H0gDV8mo7YIoQlNFtOicFiWzfB8AO4NLaZveI2hWZ"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.1/core/mco-core.js"
+        integrity="sha384-IVSuG2tnzj62YG4bFD5PxINjGy6kxD7pIoNKV6D4mK97+1D9Edp0dwFcVcXCxsJR"
         crossorigin="anonymous"></script>
 <!-- MCO.photos (0.14.0+; fullHistory 0.15.0; pinned 0.21.0): camera schedule, slots, directions, frame URLs and
      the date / time / direction controls. After mco-core.js. -->
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.0/photos/mco-photos.js"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.1/photos/mco-photos.js"
         integrity="sha384-VepbbKE6CKKljLPjOlw1TATvqOZH73WIWtFXmpSR5RAgYVEphm1rE2fkGa+vK17C"
         crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.0/map/mco-map.js"
-        integrity="sha384-32oDenYn7xmAVuf3lcodOgiHz/W1DHO4qI7kdVkAHo/JJjZc0Kw6AlCyZm2Re7NU"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.1/map/mco-map.js"
+        integrity="sha384-8ZLN6Xhnts1kIMbDa9M+H05sYgu770WLohBOrch1nTafMd+HEM7PlrP0e4fCoRb8"
         crossorigin="anonymous"></script>
 <script src="app.js"></script>
 </body>
