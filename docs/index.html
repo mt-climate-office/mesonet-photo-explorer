@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="mco-autolift">
 <head>
   <meta charset="UTF-8">
   <!-- CSP (meta form — GitHub Pages can't set headers). script-src carries two
@@ -139,20 +139,26 @@
     #map-container { height: 100%; min-height: 0; position: relative; }
     #map { width: 100%; height: 100%; background: var(--bg-deep); }
 
-    /* ── Navbar control groups (app-owned labels + inputs) ─────────────────── */
+    /* ── Navbar control groups (app-owned layout + inputs) ─────────────────── */
+    /* The labels are the kit's .control-label (shed visually ≤1400px, shown
+       again in the phone drawer). The uppercase, letter-spaced treatment is
+       gone (family conformance, 2026-11-03); what remains keeps a label at
+       the controls' own size and muted, rather than body-size text. */
     .control-group { display: flex; align-items: center; gap: 0.3rem; }
-    .control-label {
-      font-size: 0.7rem; font-weight: 500; letter-spacing: 0.05em;
-      text-transform: uppercase; color: var(--text-muted); white-space: nowrap;
-    }
+    /* kit-override: the kit styles .control-label only inside its shed
+       rules; this is the base size and color, in sentence case. */
+    .control-label { font-size: 0.78rem; font-weight: 500; color: var(--text-muted); white-space: nowrap; }
 
     /* Date / time inputs. --ctrl-border for interactive edges, --accent-line
-       for the hover/focus edge (both ≥3:1 — WCAG 1.4.11). */
+       for the hover/focus edge (both ≥3:1 — WCAG 1.4.11). One bar control
+       height (kit 0.21.0, HOUSE-STYLE §3): --control-h is 34px, 40px under
+       (hover: none). `height`, not `min-height`: WebKit ignores min-height on
+       a native select (kit MIGRATING.md § Gotchas). */
     input[type="date"], select.time-select {
       background: none; color: var(--text-primary);
       border: 1px solid var(--ctrl-border); border-radius: var(--radius-md);
       padding: 0 0.55rem; font-size: 0.78rem; font-family: inherit;
-      cursor: pointer; height: 34px; line-height: 34px;
+      cursor: pointer; height: var(--control-h); line-height: var(--control-h);
       -webkit-appearance: none; appearance: none;
       transition: var(--transition);
     }
@@ -164,13 +170,9 @@
     input[type="date"]:hover, select.time-select:hover { background: var(--accent-hover); border-color: var(--accent-line); }
     input[type="date"]:focus, select.time-select:focus { border-color: var(--accent-line); background: var(--accent-hover); }
 
-    /* Date stepper: ▲/▼ stacked beside the date input (next above previous). */
+    /* Date stepper: the kit's .nav-btn.mco-step pair laid out prev · date ·
+       next, the same order as the phone bar's hot control. */
     .date-stepper { display: flex; align-items: center; gap: 4px; }
-    .date-step-btns { display: flex; flex-direction: column-reverse; gap: 2px; }
-    .nav-btn.date-step {
-      padding: 0 4px; min-height: 0; height: 15px; min-width: 20px;
-      border-radius: var(--radius-sm); justify-content: center;
-    }
 
     /* Narrow-screen fallback for the segmented direction group (HOUSE-STYLE §3
        cites this pattern). MCO.initSegmentedFallback puts [hidden] on whichever
@@ -189,6 +191,10 @@
        (search + date stepper + time + up to seven direction segments + five
        buttons) and already runs out of room just above the 1060px shed. */
     .mco-search .mco-search-input { width: 200px; padding-right: 30px; }
+    /* kit-override: narrowed again at the 1400 shed (HOUSE-STYLE §3: "segmented
+       → select, search narrowed"), so the bar stays one row down to 1061px
+       with the prev · date · next stepper and the labelled Boundaries chip. */
+    @media (max-width: 1400px) { .mco-search .mco-search-input { width: 150px; } }
     #search-input::-webkit-search-cancel-button { filter: var(--ctrl-icon-filter, none); }
     .search-kbd {
       position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
@@ -200,22 +206,23 @@
     /* Hide the / hint once the user has focused the search (or while typing). */
     #search-wrap:focus-within .search-kbd { opacity: 0; }
 
-    /* ── Photo gallery dialog (app-local) ──────────────────────────────────── */
-    .modal-box {
-      background: var(--bg-surface); border: 1px solid var(--border);
-      border-radius: 10px; width: min(860px, calc(100vw - 4rem));
-      max-height: calc(100dvh - 4rem); overflow-y: auto; padding: 1.25rem;
-      box-shadow: var(--shadow);
+    /* ── Station sheet (kit .mco-sheet + MCO.initSheet; app-owned content) ─── */
+    /* Wide enough for two photo columns when end-docked (the kit's default
+       360px fits one). On compact the kit sizes it to the viewport. */
+    #station-sheet { --sheet-w: 420px; }
+    /* kit-override: the end-docked sheet covers the map's right edge, where
+       the zoom group and the attribution sit, so they move beside it while
+       it is open (the kit's autolift covers only the compact bottom sheet).
+       Same width as the sheet: min(--sheet-w, 40vw). */
+    html:not(.is-compact) body:has(> #station-sheet[data-state="full"]) :is(.maplibregl-ctrl-top-right, .maplibregl-ctrl-bottom-right) {
+      right: min(420px, 40vw);
     }
-    .modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; gap: 1rem; }
-    /* Prev/next station arrows and the close button share a row and one
-       treatment: all three are the kit's .nav-btn.icon-only (34px). */
-    .modal-header-actions { display: flex; align-items: center; gap: 0.35rem; flex-shrink: 0; }
-    .modal-station-name { font-size: 1.1rem; font-weight: 700; color: var(--accent-line); }
-    .modal-timestamp { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem; }
+    .sheet-meta { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.75rem; }
+    .sheet-stamp { margin: 0; font-size: 0.78rem; color: var(--text-muted); }
+    .sheet-step { display: flex; gap: 0.35rem; flex-shrink: 0; }
 
-    .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.75rem; }
-    .photo-empty { font-size: 0.85rem; color: var(--text-muted); padding: 0.5rem 0; }
+    .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.75rem; }
+    .photo-empty { font-size: 0.85rem; color: var(--text-muted); padding: 0.5rem 0; margin: 0; }
     .photo-card { text-align: center; }
     /* A real button so enlarging has a keyboard twin and a focus target
        (HOUSE-STYLE §5.8); the kit's focus ring applies to it unchanged. */
@@ -228,8 +235,8 @@
       background: var(--bg-deep); border: 1px solid var(--border); display: block;
     }
     .photo-dir-label { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.3rem; }
-    .modal-dash-link { margin-top: 1rem; text-align: center; }
-    .modal-dash-link a {
+    .sheet-dash-link { margin-top: 1rem; text-align: center; }
+    .sheet-dash-link a {
       display: inline-block; padding: 0.5rem 1.5rem;
       background: var(--accent); color: var(--text-on-accent);
       border-radius: 6px; font-size: 0.9rem; font-weight: 600;
@@ -237,7 +244,7 @@
     }
     /* Hover ring rather than a lighter fill: --text-on-accent is only
        guaranteed against --accent itself (kit contrast contract §2). */
-    .modal-dash-link a:hover { box-shadow: 0 0 0 2px var(--accent-line); }
+    .sheet-dash-link a:hover { box-shadow: 0 0 0 2px var(--accent-line); }
 
     /* ── Lightbox (app-local) ──────────────────────────────────────────────── */
     /* Always a near-black backdrop in every theme, so the two colors below are
@@ -268,94 +275,68 @@
     .lightbox-prev { left: 0.5rem; }
     .lightbox-next { right: 0.5rem; }
 
-    /* ── Info modal extras (shell + sections come from the kit) ────────────── */
-    .info-icon { display: inline-flex; align-items: center; vertical-align: middle; margin: 0 3px 1px 0; opacity: 0.8; }
-    .info-icon svg { stroke: currentColor; }
-
     /* ── Responsive ────────────────────────────────────────────────────────── */
-    /* Breakpoints 1400 (labels) / 1060 (chrome) / 750 (subtitle) come from the
-       kit. The kit's segmented fallback swaps the direction group to its
-       <select> at the 1400 label edge, not its default 1060 (rules above;
-       app.js passes the query): kit 0.10.0's larger lockup (~212px vs ~169)
-       pushed the one-row bar off the right edge at 1061-~1150px, and at
-       1061-1400 on pre-2026-09-29 dates with all seven directions. */
-    /* This bar is control-dense: search + date stepper + time + direction +
-       five buttons don't fit on one row until ~1000px even with the brand
-       collapsed, so wrapping is allowed below 1060 (where the kit also tightens
-       chrome and the direction group becomes a <select>). */
+    /* Breakpoints 1400 (labels) / 1060 (chrome) / 750 (subtitle) / 640
+       (compact) come from the kit. The kit's segmented fallback swaps the
+       direction group to its <select> at the 1400 label edge, not its
+       default 1060 (rules above; app.js passes the query): kit 0.10.0's
+       larger lockup (~212px vs ~169) pushed the one-row bar off the right
+       edge at 1061-~1150px, and at 1061-1400 on pre-2026-09-29 dates with all
+       seven directions. */
     /* Above 1060 the controls stay one row, but the bar itself may wrap: on
        pre-2026-09-29 dates (seven direction segments) at 1401-~1480px, where
        the 1400 label shed hasn't started, the kit 0.10.0 lockup leaves the
        row ~50-75px too wide, and wrapping drops the action buttons to a
        second row instead of pushing them off-screen (WCAG 1.4.10). */
     @media (min-width: 1061px) {
+      /* kit-override: the kit lets .controls wrap; here the bar wraps instead. */
       .controls   { flex-wrap: nowrap; }
     }
-    /* Once wrapping starts, give the controls their own full-width row and lift
-       the icon buttons up beside the brand — the mesonet-status pattern, one row
-       cheaper. CSS `order` moves the visual position only; tab order is intact. */
-    @media (max-width: 1060px) {
-      .nav-meta { order: 1; }
-      .controls { order: 2; flex-basis: 100%; }
-    }
-    /* At compact widths (≤640px — kit v0.6.0; was 460px) the search field
-       collapses into an icon and reopens as an overlay bar. That is the kit's
-       component (.mco-search-collapse / .mco-search-toggle +
-       MCO.initSearchCollapse): the classes are on the markup above, so there is
-       deliberately nothing to style here. Do NOT re-add a local
-       #btn-search-toggle rule — an ID selector outbids the kit's class and would
-       strand the toggle hidden. */
 
-    /* ── Landscape rail (kit 0.10.0: .mco-navbar[data-rail] + MCO.initNavRail)
-       This app prototyped the rail (#38); the kit owns it now — the fixed 56px
-       column, body padding, the drawer's position/display/transition, and the
-       un-hiding of the lockup, labels and button text inside it. What stays
-       here is this app's own content: the rail readout and direction cycle,
-       and how its control groups stack in the drawer. Same query as
-       MCO.viewport.RAIL_MQ. */
-    @media (max-height: 560px) and (orientation: landscape) {
-      .mco-rail .rail-dir { font: 600 0.72rem var(--font-mono); }
+    /* ── Phone bar (kit 0.21.0: .mco-navbar[data-rail="compact"] +
+       MCO.initNavRail). The kit owns the one-row bar, the 56px landscape
+       rail, the drawers (position, display, transition) and the un-hiding of
+       the lockup, labels and button text inside them. What stays here is
+       this app's own content: the date readout between the day steppers,
+       the rail's direction cycle, and how its control groups stack in the
+       drawer. The query is MCO.viewport.RAIL_MQ OR ≤640px, i.e. every
+       viewport where .mco-nav-drawer is a drawer (rail or row). */
+    @media (max-height: 560px) and (orientation: landscape), (max-width: 640px) {
       .rail-readout {
         margin: 0; text-align: center; line-height: 1.25;
         font-size: 0.66rem; font-weight: 500; color: var(--text-secondary);
         white-space: nowrap;
       }
       .rail-readout span { display: block; }
-      /* Undo the ≤1060 bar's row ordering (nav-meta lifted, controls given a
-         full-width row): in the drawer's column, search/date/time/direction
-         come first and flex-basis:100% would mean full height. */
-      .mco-nav-drawer .controls { order: 0; flex-basis: auto; gap: 0.75rem; }
-      .mco-nav-drawer .control-group { flex-direction: column; align-items: stretch; gap: 0.25rem; }
-      .mco-nav-drawer .date-stepper input[type="date"] { flex: 1; min-width: 0; }
-      .mco-nav-drawer .date-step-btns { flex-direction: row; gap: 4px; }
-      .mco-nav-drawer .time-select { width: 100%; }
+      /* kit-override: a little more air between the stacked groups than the
+         kit's bar gap. */
+      .mco-nav-drawer .controls { gap: 0.75rem; }
+      #nav-drawer .control-group { flex-direction: column; align-items: stretch; gap: 0.25rem; }
+      #nav-drawer .date-stepper input[type="date"] { flex: 1; min-width: 0; }
+      #nav-drawer .time-select { width: 100%; }
       /* kit-override: the search list stays inside the short viewport. */
       .mco-nav-drawer .mco-search-list { max-height: 50dvh; }
       .mco-nav-drawer .search-kbd { display: none; }
       .mco-nav-drawer .nav-meta {
-        order: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;
+        display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;
       }
+    }
+    @media (max-height: 560px) and (orientation: landscape) {
+      #btn-rail-dir { font: 600 0.72rem var(--font-mono); }
+    }
+    /* The phone row has room for one hot control, the day stepper; the
+       direction cycle is rail-only (the drawer has the direction menu).
+       Same query as the kit's compact drawer (COMPACT_MQ minus RAIL_MQ). */
+    @media (max-width: 640px) and (orientation: portrait), (max-width: 640px) and (height > 560px) {
+      #btn-rail-dir { display: none; }
+      .rail-readout { min-width: 3.5rem; }
     }
 
     /* WCAG 2.5.5 — touch targets for app-owned controls (kit covers its own). */
     @media (hover: none) {
-      /* `height`, not `min-height`: WebKit ignores min-height on a native
-         select (kit MIGRATING.md § Gotchas). The date input, the Time menu
-         and the narrow-screen direction select. */
-      input[type="date"], select.time-select { height: 40px; line-height: 40px; }
       .lightbox-close { min-width: 44px; min-height: 44px; }
-      /* The gallery's close button is a close control, so 44px (HOUSE-STYLE
-         §5.5), not the 40px of its sibling arrows; and the dashboard link is a
-         standalone button-like link, not an inline one. */
-      .modal-header-actions #modal-close { min-width: 44px; min-height: 44px; }
-      .modal-dash-link a { min-height: 44px; display: inline-flex; align-items: center; }
-      /* Two stacked 15px buttons are untappable — lay the stepper out as a
-         pair of 40px targets (previous left, next right) instead. */
-      .date-step-btns { flex-direction: row; gap: 4px; }
-      .nav-btn.date-step {
-        min-width: 40px; min-height: 40px; height: 40px;
-        border-radius: var(--radius-md);
-      }
+      /* The dashboard link is a standalone button-like link, not an inline one. */
+      .sheet-dash-link a { min-height: 44px; display: inline-flex; align-items: center; }
     }
   </style>
 </head>
@@ -364,16 +345,17 @@
 <!-- Skip link first (WCAG 2.4.1) — mco-web-style snippets/skip-link.html -->
 <a class="mco-skip-link" href="#main">Skip to map</a>
 
-<header id="navbar" class="mco-navbar" data-rail>
+<header id="navbar" class="mco-navbar" data-rail="compact">
   <a href="https://climate.umt.edu" target="_blank" rel="noopener noreferrer"
      class="logo-link" aria-label="Montana Climate Office">
     <img src="assets/mco-logo.png" alt="" class="logo-img" width="40" height="40">
   </a>
 
-  <!-- Landscape-phone rail (kit .mco-rail, 0.10.0). display:none except at
-       MCO.viewport.RAIL_MQ, so it is out of the accessibility tree everywhere
-       else. Menu, then the hot controls: next day above previous (like the
-       date stepper), a date/time readout, and the direction cycle. -->
+  <!-- The phone bar (kit .mco-rail; data-rail="compact", 0.21.0). Hidden above
+       compact. On a portrait phone it flattens into ONE row: badge (left
+       edge) · the day stepper, prev · date · next · search · ☰ (the first
+       child, moved to the right edge by the kit). On a landscape phone the
+       same children are the 56px left rail, plus the direction cycle. -->
   <div class="mco-rail" id="rail">
     <button type="button" class="nav-btn icon-only" id="btn-menu"
             aria-expanded="false" aria-controls="nav-drawer" aria-label="Map controls">
@@ -382,28 +364,39 @@
         <line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/>
       </svg>
     </button>
-    <button type="button" class="nav-btn icon-only" id="btn-rail-next" aria-label="Next day">
+    <button type="button" class="nav-btn mco-step" id="btn-rail-prev" aria-label="Previous day">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="3"
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <polyline points="18 15 12 9 6 15"/>
+        <polyline points="15 18 9 12 15 6"/>
       </svg>
     </button>
     <p class="rail-readout" id="rail-readout"></p>
-    <button type="button" class="nav-btn icon-only" id="btn-rail-prev" aria-label="Previous day">
+    <button type="button" class="nav-btn mco-step" id="btn-rail-next" aria-label="Next day">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="3"
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <polyline points="6 9 12 15 18 9"/>
+        <polyline points="9 18 15 12 9 6"/>
       </svg>
     </button>
-    <!-- Cycles through the directions the selected slot offers; label set by app.js. -->
+    <!-- Rail only (hidden in the phone row): cycles through the directions
+         the selected slot offers; label set by app.js. -->
     <button type="button" class="nav-btn icon-only rail-dir" id="btn-rail-dir" aria-label="Next camera direction">W</button>
+    <!-- Last in .mco-rail: in the phone row it opens the drawer on the search
+         field (MCO.initNavRail's search option). Hidden above compact. -->
+    <button type="button" class="nav-btn icon-only mco-search-toggle" id="btn-search-toggle"
+            aria-expanded="false" aria-controls="nav-drawer" aria-label="Search stations">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+    </button>
   </div>
 
   <div class="nav-divider" aria-hidden="true"></div>
 
-  <!-- Kit .mco-nav-drawer: display:contents everywhere but rail mode, so the
-       navbar lays out exactly as if this wrapper weren't here; in rail mode it
-       is the drawer beside the rail (MCO.initNavRail). -->
+  <!-- Kit .mco-nav-drawer: display:contents above compact, so the navbar lays
+       out as if this wrapper weren't here; on a phone it is the drawer
+       (MCO.initNavRail): right of the bar's row in portrait, beside the rail
+       in landscape. -->
   <div class="mco-nav-drawer" id="nav-drawer">
   <div class="brand">
     <h1 class="brand-title">Mesonet Photo Explorer</h1>
@@ -413,7 +406,7 @@
   <div class="controls">
     <!-- Search a station (kit .mco-search + MCO.initSearchBox, which wires the
          combobox/listbox roles and aria-*). Press / anywhere to jump here. -->
-    <div class="mco-search mco-search-collapse" id="search-wrap">
+    <div class="mco-search" id="search-wrap">
       <span class="mco-search-icon" aria-hidden="true"></span>
       <label for="search-input" class="sr-only">Search stations</label>
       <input type="search" id="search-input" class="mco-search-input" placeholder="Search stations…">
@@ -423,22 +416,22 @@
 
     <div class="control-group">
       <label class="control-label" for="date-input">Date</label>
+      <!-- Kit stepper (.nav-btn.mco-step, MCO.initStepper via the photo
+           controls), laid out prev · date · next. -->
       <div class="date-stepper">
+        <button type="button" class="nav-btn mco-step" id="btn-date-prev" aria-label="Previous day">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+               stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
         <input type="date" id="date-input">
-        <div class="date-step-btns">
-          <button type="button" class="nav-btn date-step" id="btn-date-prev" aria-label="Previous day">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
-                 stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
-          </button>
-          <button type="button" class="nav-btn date-step" id="btn-date-next" aria-label="Next day">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
-                 stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <polyline points="18 15 12 9 6 15"/>
-            </svg>
-          </button>
-        </div>
+        <button type="button" class="nav-btn mco-step" id="btn-date-next" aria-label="Next day">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+               stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </button>
       </div>
     </div>
 
@@ -464,24 +457,8 @@
   </div>
 
   <div class="nav-meta">
-    <!-- Compact widths only (≤640px): collapses the search field into this
-         disclosure, which expands it as an overlay bar under the navbar. Hidden
-         at wider widths, where the field itself is in .controls. -->
-    <button type="button" class="nav-btn icon-only mco-search-toggle" id="btn-search-toggle"
-            aria-expanded="false" aria-controls="search-wrap" aria-label="Search stations">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
-           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-      </svg>
-    </button>
-    <button type="button" class="nav-btn" id="btn-counties" aria-pressed="false" aria-label="Toggle county and tribal nation boundaries">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-        <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
-      </svg>
-      <span class="btn-label">Boundaries</span>
-    </button>
+    <!-- A map layer, so a chip (HOUSE-STYLE §5.7): pressed means showing. -->
+    <button type="button" class="mco-chip" id="btn-counties" aria-pressed="false">Boundaries</button>
     <button type="button" class="nav-btn" id="btn-export" aria-label="Export map as PNG">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -527,8 +504,9 @@
   </div>
 </header>
 
-<!-- Rail mode only: dims the map while the drawer is open; a tap closes it. The
-     kit scrim sits at --z-map-panel, below the navbar, so the rail stays lit. -->
+<!-- Phone drawer only (rail or row): dims the map while the nav drawer is open;
+     a tap closes it. The kit scrim sits at --z-map-panel, below the navbar, so
+     the bar stays lit. -->
 <div class="mco-scrim" id="rail-scrim" hidden></div>
 
 <main id="main" tabindex="-1">
@@ -536,7 +514,7 @@
        appended to <main> after this. -->
   <div id="map-container">
     <div id="map" role="application"
-         aria-label="Map of Montana Mesonet weather stations. Click a station's photo to view its gallery. The data is in the table that follows."></div>
+         aria-label="Map of Montana Mesonet weather stations. Select a station's photo to open its photos. The data is in the table that follows."></div>
   </div>
 </main>
 
@@ -549,62 +527,62 @@
   <div class="info-modal-box">
     <div class="info-modal-header">
       <div>
-        <h2 class="info-modal-title" id="info-modal-title">Montana Mesonet Photo Explorer</h2>
+        <h2 class="info-modal-title" id="info-modal-title">Mesonet Photo Explorer</h2>
         <p class="info-modal-subtitle">A service of the Montana Climate Office</p>
       </div>
       <button type="button" class="modal-close" id="info-modal-close" aria-label="Close" data-close-modal>&times;</button>
     </div>
 
+    <!-- The kit's info-modal outline (HOUSE-STYLE §1, 0.21.0): What this shows ·
+         How to use it · Share or bookmark · Data. -->
     <div class="info-section">
-      <h3>About</h3>
-      <p>The <a href="https://climate.umt.edu/mesonet/" target="_blank" rel="noopener">Montana Mesonet</a> is a network of 215+ stations operated by the <a href="https://climate.umt.edu" target="_blank" rel="noopener">Montana Climate Office</a> at the University of Montana, measuring temperature, humidity, wind, precipitation, and soil conditions to support drought monitoring and land management statewide.</p>
-      <p>In 2020, the U.S. Army Corps of Engineers funded 205 HydroMet stations across central and eastern Montana — one per ~500 sq mi — to improve drought and flood forecasting across the <a href="https://climate.umt.edu/mesonet/umrb/" target="_blank" rel="noopener">Upper Missouri River Basin</a>. Each station includes a pan-tilt-zoom camera capturing photos in all cardinal directions, toward the sky, and at the snowpack.</p>
+      <h3>What this shows</h3>
+      <p>Photos from the cameras on <a href="https://climate.umt.edu/mesonet/" target="_blank" rel="noopener">Montana Mesonet</a> HydroMet stations, one cell per station, all taken at the date, time and direction you choose. In 2020 the U.S. Army Corps of Engineers funded 205 HydroMet stations across central and eastern Montana, one per ~500 sq mi, and each carries a pan-tilt-zoom camera that photographs North, East, South and West on a schedule.</p>
+      <p>The cells tile a survey grid aligned with the Montana–North Dakota border, designed to keep distortion low across the <a href="https://climate.umt.edu/mesonet/umrb/" target="_blank" rel="noopener">Upper Missouri River Basin</a>. On this web map they appear as gently rotated squares. A cell with no photo had no picture at that time; its camera was offline or the photo has not arrived yet.</p>
     </div>
 
     <div class="info-section">
-      <h3>Using the Photo Explorer</h3>
+      <h3>How to use it</h3>
       <ul>
-        <li><strong>Date &amp; Time</strong> — Browse any date. The Time menu lists the times the cameras were scheduled to shoot on the chosen day. Use ▲▼ to step day by day. If the chosen time wasn't shot that day, the next one that was is shown, and the page says so. All times are Mountain Time.</li>
-        <li><strong>Direction</strong> — Pick North, East, South or West to show that view across all stations at once.</li>
-        <li><strong>Search</strong> — Press <kbd>/</kbd> to jump to the search box, then <kbd>↑</kbd>/<kbd>↓</kbd> + <kbd>Enter</kbd> to fly to a station and open its gallery.</li>
-        <li><strong>Click a station</strong> — Open a photo gallery for that station; click or press <kbd>Enter</kbd> on any photo to enlarge it. Use <kbd>←</kbd>/<kbd>→</kbd> (or the arrow buttons) to step through stations; swipe the enlarged photo on touch screens.</li>
-        <li><strong>Zoom &amp; pan</strong> — Scroll or pinch to zoom, drag to pan; use the +/− and full-extent buttons at top-right.</li>
-        <li>
-          <span class="info-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>
-          <strong>Boundaries</strong> — Toggle county lines and tribal nation boundaries (which lightly shade the photos).
-        </li>
-        <li>
-          <span class="info-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
-          <strong>Export</strong> — Download a PNG of the current map.
-        </li>
-        <li>
-          <span class="info-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></span>
-          <strong>Share</strong> — Copy a shareable link to your clipboard. The URL reflects every choice.
-        </li>
-        <li>Single-key shortcuts can be disabled by adding <code>?kbd=off</code> to the URL (it sticks while you browse).</li>
+        <li><strong>Date &amp; Time</strong>: browse any date. The Time menu lists the times the cameras were scheduled to shoot on the chosen day. The ‹ and › buttons step a day at a time. If the chosen time wasn't shot that day, the next one that was is shown, and the page says so. All times are Mountain Time.</li>
+        <li><strong>Direction</strong>: pick North, East, South or West to show that view across every station at once.</li>
+        <li><strong>Search</strong>: press <kbd>/</kbd> to jump to the search box, then <kbd>↑</kbd>/<kbd>↓</kbd> and <kbd>Enter</kbd> to fly to a station and open its photos.</li>
+        <li><strong>Select a station</strong>: click its cell to open the station's photos in a panel. Click or press <kbd>Enter</kbd> on a photo to enlarge it. <kbd>←</kbd>/<kbd>→</kbd> or the arrow buttons step through stations; on a touch screen, swipe the enlarged photo.</li>
+        <li><strong>Zoom &amp; pan</strong>: scroll or pinch to zoom, drag to pan, and use the +/− and full-extent buttons at top right.</li>
+        <li><strong>Boundaries</strong>: show county lines and tribal nation boundaries, which lightly shade the photos.</li>
+        <li>Single-key shortcuts can be turned off by adding <code>?kbd=off</code> to the URL. It sticks while you browse.</li>
       </ul>
     </div>
 
     <div class="info-section">
-      <h3>About the station grid</h3>
-      <p>The photos tile a survey grid aligned with the Montana–North Dakota border — a coordinate system designed to minimize distortion across the Upper Missouri River Basin, with one cell per station. On this web map the cells appear as gently rotated squares.</p>
+      <h3>Share or bookmark</h3>
+      <p>The address bar always holds the full view: date, time, direction, boundaries, the map's position and any open station. <strong>Share</strong> copies that link, and a bookmark returns to the same photos. <strong>Export</strong> downloads a PNG of the map.</p>
+    </div>
+
+    <div class="info-section">
+      <h3>Data</h3>
+      <p>Stations, their locations and their grid cells come from the Montana Mesonet API. The camera schedule and the photos come from the Mesonet photo archive, kept since September 2022.</p>
+      <!-- Filled from MCO.credit (app.js): never hand-typed. -->
+      <p id="info-credit"></p>
     </div>
   </div>
 </dialog>
 
-<dialog id="modal" class="mco-modal" aria-labelledby="modal-station-name">
-  <div class="modal-box">
-    <div class="modal-header">
-      <div>
-        <!-- Filled at open time; a div rather than a heading because an empty
-             heading is invalid markup — the dialog is named via
-             aria-labelledby regardless. -->
-        <div class="modal-station-name" id="modal-station-name"></div>
-        <div class="modal-timestamp"    id="modal-timestamp"></div>
-      </div>
-      <!-- Station stepping: alphabetical by id, wraps at the ends. ←/→ do the
-           same from anywhere in the dialog (app.js). -->
-      <div class="modal-header-actions">
+<!-- Station detail: the kit sheet (MCO.initSheet, HOUSE-STYLE §3, 0.21.0) at
+     every width, end-docked above compact and a bottom sheet on compact. A
+     photo opens the lightbox below to enlarge it. -->
+<section class="mco-sheet" id="station-sheet" aria-labelledby="sheet-title" data-state="closed" hidden>
+  <div class="mco-sheet-head">
+    <button type="button" class="mco-sheet-grip" aria-label="Expand details" aria-expanded="false"></button>
+    <h2 class="mco-sheet-title" id="sheet-title" tabindex="-1">Station photos</h2>
+    <button type="button" class="modal-close" data-close-sheet aria-label="Close station photos">&times;</button>
+  </div>
+  <div class="mco-sheet-body">
+    <!-- Station stepping: alphabetical by id, wraps at the ends. ←/→ do the
+         same from anywhere in the sheet (app.js). -->
+    <div class="sheet-meta">
+      <p class="sheet-stamp" id="sheet-stamp"></p>
+      <div class="sheet-step">
         <button type="button" class="nav-btn icon-only" id="btn-station-prev" aria-label="Previous station">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -617,21 +595,12 @@
             <polyline points="9 18 15 12 9 6"/>
           </svg>
         </button>
-        <!-- Same .nav-btn.icon-only treatment as the arrows (not the kit's
-             .modal-close): one border token, one radius, and an SVG glyph so
-             the × centres like the chevrons instead of sitting low as text. -->
-        <button type="button" class="nav-btn icon-only" id="modal-close" aria-label="Close">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-               stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
       </div>
     </div>
-    <div class="photo-grid"    id="photo-grid"></div>
-    <div class="modal-dash-link" id="modal-dash-link"></div>
+    <div class="photo-grid" id="photo-grid"></div>
+    <div class="sheet-dash-link" id="sheet-dash-link"></div>
   </div>
-</dialog>
+</section>
 
 <dialog id="lightbox" class="mco-modal" aria-label="Full-size station photo">
   <button type="button" class="lightbox-close" id="lightbox-close" aria-label="Close">&times;</button>
