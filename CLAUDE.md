@@ -6,7 +6,7 @@ The Montana Mesonet Photo Explorer: a static MapLibre single-page app in `docs/`
 ## House style
 
 This app consumes mco-web-style (pinned + SRI in `docs/index.html`; currently
-**v0.16.2**, with MapLibre GL **6.11.2** — check the tag in that file rather than trusting this line). Design tokens, a11y mandates, and interaction conventions: see
+**v0.21.0**, with MapLibre GL **6.11.2** — check the tag in that file rather than trusting this line). Design tokens, a11y mandates, and interaction conventions: see
 HOUSE-STYLE.md in https://github.com/mt-climate-office/mco-web-style — tokens
 only (no raw hexes), `--accent` is fill-only, `aria-pressed` drives toggle
 styling, canvas data needs a live region + sr-only table twin. To change shared
@@ -14,33 +14,45 @@ styling, change the kit and bump the pinned version here; never patch a local
 copy.
 
 App-local by deliberate kit decision (do NOT extract): the photo-mosaic
-machinery, the gallery/lightbox dialogs, and the branded PNG export. Since kit
-0.9.0 these are the kit's — don't re-grow local copies: the date steppers
-(`MCO.initStepper`), the direction segments' `<select>` fallback
-(`MCO.initSegmentedFallback`), the search combobox (`MCO.initSearchBox`),
-the social/tab titles (`MCO.setSocialMeta` / `setPageTitle`), the announcer
-(`MCO.announce`), the table twin (`MCO.srTable`), and the basemap failure
-fallback (`MCO.map.watchBasemap`). Since kit 0.14.0 the station-photo layer is
-the kit's too (`MCO.photos`, `photos/mco-photos.js`): the camera schedule, the
+machinery, the station sheet's photo grid and the lightbox dialog, and the
+branded PNG export. Since kit 0.9.0 these are the kit's — don't re-grow local
+copies: the date steppers (`MCO.initStepper`, `.nav-btn.mco-step`), the
+direction segments' `<select>` fallback (`MCO.initSegmentedFallback`), the
+search combobox (`MCO.initSearchBox`), the social/tab titles
+(`MCO.setSocialMeta` / `setPageTitle`), the announcer (`MCO.announce`), the
+table twin (`MCO.srTable`), and the basemap failure fallback
+(`MCO.map.watchBasemap`). Since kit 0.14.0 the station-photo layer is the
+kit's too (`MCO.photos`, `photos/mco-photos.js`): the camera schedule, the
 slot and direction rules, frame URLs, and the date / time / direction controls
-(`MCO.photos.initPhotoControls`). The social card image stays the
+(`MCO.photos.initPhotoControls`). Since kit 0.21.0 (family conformance) so are:
+the station detail surface (`MCO.initSheet`: end-docked above compact, a
+bottom sheet on compact; a photo opens the lightbox to enlarge it), the
+`?station=` deep-link flight (`MCO.map.flyToAndOpen`), the first-visit intro
+(`MCO.initInfoModal`'s `intro`, key `mco-photos-seen-intro`), and the one-row
+phone bar (`data-rail="compact"`). The social card image stays the
 bot-regenerated `docs/preview.png`, not the kit's og-card.
 
 Marked kit-overrides in this app:
 - **No hillshade** — the photo mosaic is the figure; relief under opaque photo
   rasters would only show in the untiled west while competing with the imagery.
-- Navbar wraps at ≤1060px and lifts `.nav-meta` beside the brand there, so the
-  controls get a full-width row. The brand itself collapses to the logo badge at
-  ≤750px — that is the kit default, not an override. Search collapsing to an icon
-  + overlay at ≤640px is the kit's `.mco-search-collapse` component (this app
-  prototyped it; mesonet-status adopting it is what moved it into the kit).
-- **Landscape rail** — prototyped here and adopted by the kit in 0.10.0
-  (mco-web-style #38): `.mco-navbar[data-rail]` + `.mco-rail` +
-  `.mco-nav-drawer` + `MCO.initNavRail`, at `MCO.viewport.RAIL_MQ`. The app
-  keeps only its rail content (day ▲/▼, date/time readout, direction cycle)
-  and how its control groups stack in the drawer, plus the three hand-offs:
-  `/` opens the drawer on the search field, a search result closes it without
-  restoring focus, Export / info close it first.
+- **Map controls beside the end-docked sheet**: the zoom group and attribution
+  move left of the open sheet above compact (the kit's autolift covers only
+  the compact bottom sheet).
+- `.control-label` keeps a base size and muted color (sentence case; the
+  uppercase treatment was dropped in the 0.21.0 conformance pass).
+- Between 641 and 1060px the bar may wrap to a second row (the kit tightens
+  chrome there and the direction group is a `<select>`); the old `order` /
+  `flex-basis` swap that lifted `.nav-meta` beside the brand is gone.
+
+**Phone bar** (kit 0.21.0, `.mco-navbar[data-rail="compact"]` +
+`MCO.initNavRail`): one row on a portrait phone, badge · the day stepper
+(prev · date/time readout · next, the hot control) · search · ☰ at the right
+edge, with everything else in a right drawer; on a landscape phone the same
+`.mco-rail` children are the 56px left rail (plus the direction cycle, which
+the one-row bar hides). The app keeps only its rail content and how its
+control groups stack in the drawer, plus the hand-offs: `/` opens the drawer
+on the search field, a search result closes it without restoring focus,
+Export / info close it first. This app prototyped the rail (mco-web-style #38).
 
 ## Camera schedule source
 

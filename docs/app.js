@@ -7,7 +7,8 @@
 
    App-owned (deliberately NOT in the kit — MIGRATING.md § kit-deferred):
    the photo-mosaic machinery (cover-crop + LRU cache, one image source per
-   station cell), the gallery/lightbox dialogs and the branded PNG export.
+   station cell), the station sheet's photo grid, the lightbox and the
+   branded PNG export. The sheet itself is the kit's (MCO.initSheet, 0.21.0).
    Since kit 0.9.0 the date stepper (MCO.initStepper) and the direction
    segments' <select> fallback (MCO.initSegmentedFallback) are the kit's, and
    since 0.14.0 so are the camera schedule, the slot and direction rules and
@@ -30,7 +31,7 @@ const DASH_URL        = (s) => `https://mesonet.climate.umt.edu/dash/${s}`;
 // exports draw from the kit, never climate.umt.edu), loaded with CORS so the
 // canvas stays exportable. KEEP the version in step with the kit tags in
 // index.html. -on-light / -on-dark is picked by the card's own background.
-const KIT_ASSETS      = "https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.20.0/assets/";
+const KIT_ASSETS      = "https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.0/assets/";
 const WORDMARK_URL    = (onLight) => `${KIT_ASSETS}mco-wordmark-on-${onLight ? 'light' : 'dark'}.svg`;
 
 // This tool keeps the full public history (website DECISIONS D16, kit 0.15.0
@@ -60,8 +61,9 @@ const SLOT_ACCEPT_RATIO = 0.6;
 const SLOT_FALLBACK_MAX = 6;    // slots to walk back (≈2 days at 3 slots/day)
 
 // localStorage (HOUSE-STYLE §4: app-private keys are mco-<app>-* prefixed and
-// re-validated on read). LEGACY_SEEN_KEY was unprefixed before the kit
-// migration — read-old/write-new so returning visitors don't re-see the intro.
+// re-validated on read). LS_SEEN is the kit intro's key (initInfoModal
+// `intro`, 0.21.0); LS_SEEN_OLD was unprefixed before the kit migration, so
+// it is carried over to LS_SEEN once and returning visitors don't re-see it.
 const LS_SEEN     = 'mco-photos-seen-intro';
 const LS_SEEN_OLD = 'mco-info-seen';
 const LS_COUNTIES = 'mco-photos-counties';
@@ -86,7 +88,7 @@ const tooltipEl      = document.getElementById("tooltip");
 const searchInput    = document.getElementById("search-input");
 const searchDropdown = document.getElementById("search-dropdown");
 const infoModal      = document.getElementById("info-modal");
-const modal          = document.getElementById("modal");
+const sheetEl        = document.getElementById("station-sheet");
 const lightbox       = document.getElementById("lightbox");
 
 // Screen-reader announcements for what the WebGL mosaic shows (HOUSE-STYLE
@@ -102,7 +104,8 @@ let _activeFeatures = [];             // [{ station, name, coords:[4×[lng,lat]]
 let _featureByStation = new Map();
 let _cellsFC = null;                  // GeoJSON FeatureCollection for the 'cells' source (numeric ids)
 let _stationsList = [];               // search index: [{ station, name }]
-let _stationOrder = [];               // station ids, alphabetical — the prev/next order in the dialogs
+let _stationOrder = [];               // station ids, alphabetical — the prev/next order in the sheet and lightbox
+let _stationNames = new Map();        // every API station id → name (camera or not), for the deep-link notice
 let _tribalFC = null, _stateFC = null, _countiesFC = null;
 let _mapReady = false;
 let _selectedStation = null;
@@ -318,12 +321,16 @@ async function onMapLoad() {
   zoomFloor.refresh();
   _mapReady = true;
 
-  // Deep-link to ?station=… , else publish a clean initial URL.
+  // Deep-link to ?station=… , else publish a clean initial URL. The entry
+  // already names the station, so these replace, never push. With a camera
+  // in the URL the sheet opens in place; a bare ?station= flies there first.
+  // A station the map can't place is announced, then dropped from the URL
+  // (it has nothing to show); never silently.
   if (_initStation && _featureByStation.has(_initStation)) {
-    // The entry already names the station, so these replace, never push.
-    if (urlParams.has('lng')) openModalByStation(_initStation, null, { push: false });
-    else                      flyToAndOpen(_initStation, null, { push: false });
+    if (urlParams.has('lng')) openStation(_initStation, null, { push: false });
+    else                      flyToStation(_initStation, null, { push: false });
   } else {
+    if (_initStation && _schedule && !_exportParam) noticeUnplacedStation(_initStation);
     updateUrl();
   }
   // Headless export hook (scripts/generate_preview.py drives ?export=…).
@@ -383,6 +390,7 @@ async function loadData() {
   _stationsList     = feats.map(f => ({ station: f.station, name: f.name }))
                           .sort((a, b) => a.name.localeCompare(b.name));
   _stationOrder     = feats.map(f => f.station).sort();
+  _stationNames     = new Map(allStations.map(s => [s.station, s.name || s.station]));
 
   initControls();
 }
@@ -695,7 +703,8 @@ function announceMosaic() {
       `for ${stampOf(st)}.`;
   if (msg === _lastAnnounced) return;
   _lastAnnounced = msg;
-  MCO.announce(msg);
+  MCO.announce(_unplacedMsg ? `${msg} ${_unplacedMsg}` : msg);
+  _unplacedMsg = '';
 }
 
 // ── Hover + click interaction ─────────────────────────────────────────────────
@@ -722,7 +731,7 @@ function wireMapPointer() {
 
   map.on('click', (e) => {
     const feats = map.getLayer('cells-fill') ? map.queryRenderedFeatures(e.point, { layers: ['cells-fill'] }) : [];
-    if (feats.length) openModalByStation(feats[0].properties.station);
+    if (feats.length) openStation(feats[0].properties.station);
   });
 }
 
@@ -738,10 +747,10 @@ function hideTooltip() { tooltipEl.classList.remove("visible"); }
 // The combobox is the kit's MCO.initSearchBox (0.8.0): APG keyboard model,
 // accent- and typo-tolerant ranking (MCO.searchModel), a disabled "No
 // matches" option, polite result counts, and Esc that closes, then clears.
-// The collapse-to-icon + overlay at ≤640px is the kit's MCO.initSearchCollapse
-// (this app prototyped it). This app keeps what only it knows: the `/`
-// shortcut, Esc closing the overlay once the field is empty, and which control
-// the gallery should treat as its opener.
+// On a phone the field lives in the nav drawer and the bar's search button
+// opens the drawer on it (MCO.initNavRail's search option, 0.21.0). This app
+// keeps what only it knows: the `/` shortcut and which control the sheet
+// should treat as its opener.
 const btnSearchToggle = document.getElementById('btn-search-toggle');
 const searchBox = MCO.initSearchBox({
   input: searchInput,
@@ -751,56 +760,79 @@ const searchBox = MCO.initSearchBox({
   label: 'Stations',
   limit: SEARCH_MAX_RESULTS,
 });
-const searchCollapse = MCO.initSearchCollapse({
-  wrap: document.getElementById('search-wrap'),
-  toggle: btnSearchToggle,
-  input: searchInput,
-  onClose: () => searchBox.close(),
-});
-// The kit handles (and stops) the Esc that closes the list or clears the
-// text; the one it passes through closes the overlay, one step at a time.
-searchInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !e.defaultPrevented && searchCollapse.isOpen()) {
-    e.preventDefault();
-    searchCollapse.close();
-  }
-});
 
 function selectStation(stationId) {
-  // Whichever control the user came from becomes the gallery's opener, so
-  // closing the dialog returns them there. In collapsed mode that's the toggle
-  // — the field itself is display:none once the overlay closes, and focusing a
-  // hidden element silently drops focus to <body>.
-  // In rail mode the field is in the drawer, which closes here — so the menu
-  // button, which stays on screen, takes focus back when the gallery closes.
-  const opener = navRail.isRail() ? btnMenu
-               : searchCollapse.isCollapsed() ? btnSearchToggle : searchInput;
-  searchCollapse.close({ restoreFocus: false });
+  // Whichever control the visitor came from becomes the sheet's opener, so
+  // closing it returns them there. On a phone the field closes with the nav
+  // drawer here, so a bar button that stays on screen takes focus back: the
+  // search button in the one-row bar, the menu button in the rail.
+  const opener = navRail.isDrawerMode() ? btnSearchToggle
+               : navRail.isRail() ? btnMenu : searchInput;
   navRail.close({ restoreFocus: false });
-  flyToAndOpen(stationId, opener);
+  flyToStation(stationId, opener);
 }
 
-function flyToAndOpen(stationId, opener, opts) {
+// Fly to a station, then open its sheet once the map is idle with the cell
+// in view (kit MCO.map.flyToAndOpen, 0.21.0). The old first-`moveend` wait
+// never fired under reduced motion: the jump ends before a listener could be
+// attached, so a ?station= deep link opened nothing and dropped the station.
+let _flightAC = null;
+function flyToStation(stationId, opener, opts) {
   const f = _featureByStation.get(stationId);
   if (!f) { MCO.showToast('Station not found'); return; }
-  map.flyTo({ center: f.centroid, zoom: SEARCH_FLY_ZOOM, speed: SEARCH_FLY_SPEED,
-              animate: !MCO.reducedMotion() });
-  map.once('moveend', () => openModalByStation(stationId, opener, opts));
+  if (_flightAC) _flightAC.abort();
+  const ac = _flightAC = new AbortController();
+  MCO.map.flyToAndOpen(map, {
+    center: f.centroid, zoom: SEARCH_FLY_ZOOM, speed: SEARCH_FLY_SPEED,
+    signal: ac.signal,
+    open: () => openStation(stationId, opener, opts),
+  }).then(() => { if (_flightAC === ac) _flightAC = null; });
 }
 
-// ── Photo gallery modal + lightbox ────────────────────────────────────────────
-// Focus restore: capture the opener and hand focus back to it on close. A
-// deep-linked open has no real opener, so focus falls back to <main> rather
-// than being dropped on <body>.
+// A ?station= the map can't show is said, never silently dropped: a station
+// with no camera, or an id that isn't a station. A persistent notice over
+// the map (MCO.notice announces it too), not a toast, so it can be read.
+// The first mosaic announcement lands a moment later and would replace the
+// notice's in the live region, so it carries the same sentence once.
+let _unplacedMsg = '';
+function noticeUnplacedStation(id) {
+  const name = _stationNames.get(id);
+  const text = !name ? `No station "${id.slice(0, 40)}" was found, so there are no photos to show.`
+    : _schedule && _schedule.stations.has(id)
+      ? `${name} has no active camera, so it isn't on this map.`
+      : `${name} has no camera, so it isn't on this map.`;
+  _unplacedMsg = text;
+  MCO.notice({ tone: 'info', text, container: document.getElementById('map-container'), place: 'over' });
+}
+
+// ── Station sheet + lightbox ──────────────────────────────────────────────────
+// Station detail is the kit's sheet at every width (MCO.initSheet; HOUSE-
+// STYLE §3, 0.21.0): end-docked above compact, a bottom sheet with peek and
+// full detents on compact. It moves focus to its title on open and back to
+// the opener on close (#main for a deep link). Tapping a photo opens the
+// lightbox dialog to enlarge it.
+const sheet = MCO.initSheet({
+  sheet: sheetEl,
+  peekHeight: 'auto',   // the head, the stamp row and the first photo ([data-peek])
+  // The full detent on compact is modal; the lightbox the sheet opens must
+  // stay usable on top of it.
+  inertRoots: () => MCO.overlay.siblingsOf(sheetEl, [lightbox]),
+  fallbackFocus: mainEl,
+  onState: (state) => { if (state === 'closed') onSheetClosed(); },
+});
+const sheetOpen = () => sheet.state() !== 'closed';
+
+// Focus restore for the lightbox: hand focus back to its opener, or <main>
+// when the opener is gone.
 function restoreFocus(el) {
   if (el && el.isConnected && el !== document.body && typeof el.focus === 'function') { el.focus(); return; }
   if (mainEl) mainEl.focus();
 }
 
-// Station stepping (←/→, the header and lightbox arrows, swipe in the
+// Station stepping (←/→, the sheet and lightbox arrows, swipe in the
 // lightbox). Order is alphabetical by station id. The candidate lists are
 // recomputed per step so a date change is picked up without bookkeeping —
-// ~200 ids is trivial. The gallery includes any station with at least one
+// ~200 ids is trivial. The sheet includes any station with at least one
 // direction at the selected slot; the lightbox holds its direction fixed and
 // skips stations that lack it.
 function galleryStations(st) {
@@ -825,9 +857,8 @@ function stepNote(r) {
 }
 
 const photoGrid = document.getElementById("photo-grid");
-let _galleryOpener = null;
 
-// Fill the gallery for a station. Runs at open and on every step; it owns the
+// Fill the sheet for a station. Runs at open and on every step; it owns the
 // selected-station state and mirrors it into the URL, so a reload lands on the
 // station the user stepped to. Returns the photo count for the announcement.
 function renderGallery(stationId, { writeUrl = true } = {}) {
@@ -835,11 +866,11 @@ function renderGallery(stationId, { writeUrl = true } = {}) {
   if (!f) return 0;
   const st = sel();
 
-  document.getElementById("modal-station-name").textContent = f.name;
-  document.getElementById("modal-timestamp").textContent    = stampOf(st);
+  document.getElementById("sheet-title").textContent = f.name;
+  document.getElementById("sheet-stamp").textContent = stampOf(st);
 
-  const dashWrap = document.getElementById("modal-dash-link");
-  dashWrap.innerHTML = "";
+  const dashWrap = document.getElementById("sheet-dash-link");
+  dashWrap.replaceChildren();
   const dashLink = document.createElement("a");
   dashLink.href = DASH_URL(stationId);
   dashLink.target = "_blank";
@@ -847,13 +878,20 @@ function renderGallery(stationId, { writeUrl = true } = {}) {
   dashLink.textContent = `Open ${f.name} dashboard →`;
   dashWrap.append(dashLink);
 
-  photoGrid.innerHTML = "";
+  photoGrid.replaceChildren();
   const validDirs = _schedule.tokens.filter(dir => shotAt(stationId, dir, st));
+  // The first card (or the empty message) is the bottom of the compact
+  // sheet's peek: one row of photos shows before the visitor expands it.
+  const markPeek = () => {
+    const first = photoGrid.firstElementChild;
+    if (first) first.setAttribute('data-peek', '');
+  };
   const showEmpty = () => {
     const msg = document.createElement("p");
     msg.className = "photo-empty";
     msg.textContent = "No photos available for this station at the selected time.";
     photoGrid.append(msg);
+    markPeek();
   };
   if (validDirs.length === 0) showEmpty();
   validDirs.forEach(dir => {
@@ -877,6 +915,7 @@ function renderGallery(stationId, { writeUrl = true } = {}) {
     img.addEventListener("error", () => {
       card.remove();
       if (!photoGrid.querySelector(".photo-card")) showEmpty();
+      else markPeek();
     });
     btn.addEventListener("click", () => openLightbox(stationId, dir, btn));
     btn.append(img);
@@ -886,55 +925,57 @@ function renderGallery(stationId, { writeUrl = true } = {}) {
     card.append(btn, label);
     photoGrid.append(card);
   });
+  markPeek();
 
   _selectedStation = stationId;
   if (writeUrl) updateUrl();
   return validDirs.length;
 }
-// Opening the gallery from the map or search is drill-down (HOUSE-STYLE §4):
-// it PUSHES a history entry, marked {mcoDetail}, so Back closes it and
-// Forward reopens it. A deep link and a Forward replay pass push:false — their
-// entry already names the station. Station steps inside the gallery or
-// lightbox replace (renderGallery → updateUrl), so stepping never floods the
-// history.
-function openModalByStation(stationId, opener, { push = true } = {}) {
+// Opening a station from the map or search is drill-down (HOUSE-STYLE §4):
+// the FIRST open from a no-detail state PUSHES a history entry, marked
+// {mcoDetail}, so Back closes the sheet and Forward reopens it. While it
+// stays open, another station (a map click, a step, the lightbox) replaces,
+// so browsing never floods the history. A deep link and a Forward replay
+// pass push:false — their entry already names the station.
+function openStation(stationId, opener, { push = true } = {}) {
   const f = _featureByStation.get(stationId);
   if (!f) return;
+  const wasOpen = sheetOpen();
+  if (lightbox.open) lightbox.close();
+  _galleryStale = false;
   const n = renderGallery(stationId, { writeUrl: false });
-  updateUrl(push ? { push: true, state: { mcoDetail: stationId } } : {});
-  _galleryOpener = opener || document.activeElement;
-  modal.showModal();
-  document.getElementById("modal-close").focus();
+  updateUrl(push && !wasOpen ? { push: true, state: { mcoDetail: stationId } } : {});
+  sheet.open('peek', { opener: opener || document.activeElement });
   MCO.announce(n
-    ? `Photo gallery for ${f.name} opened, ${n} photos.`
-    : `Photo gallery for ${f.name} opened, no photos for this date.`);
+    ? `Photos for ${f.name} opened, ${n} photos.`
+    : `Photos for ${f.name} opened, no photos for this date.`);
 }
-// Focus stays where it is: the arrows live in the header, which isn't rebuilt.
+// Focus stays where it is: the arrows live in the stamp row, which isn't rebuilt.
 function stepGalleryStation(delta) {
   const r = stepIn(galleryStations(sel()), _selectedStation, delta);
   if (!r) return;
   const n = renderGallery(r.id);
-  MCO.announce(`Photo gallery for ${_featureByStation.get(r.id).name}, ${n} photos.${stepNote(r)}`);
+  MCO.announce(`Photos for ${_featureByStation.get(r.id).name}, ${n} photos.${stepNote(r)}`);
 }
-// One close path for the button, Esc and backdrop click alike.
-// The map deliberately never moves for a station step, not even on close —
-// the user is browsing photos, not the map.
-// Closing: if this gallery pushed its entry, step Back over it, so the
-// dialog's own close (×, Esc, backdrop) and the browser's Back land on the
-// same entry and the history never holds two "gallery closed" entries in a
-// row; Forward reopens the gallery either way. When Back itself closed it
-// (_closingFromHistory), the URL is already right and nothing is popped again.
+// One close path for ×, Esc and a drag below peek alike (the kit calls
+// onState('closed')). The map deliberately never moves for a station step,
+// not even on close — the visitor is browsing photos, not the map.
+// If this sheet pushed its entry, step Back over it, so the sheet's own close
+// and the browser's Back land on the same entry and the history never holds
+// two "closed" entries in a row; Forward reopens it either way. When Back
+// itself closed it (_closingFromHistory), the URL is already right and
+// nothing is popped again.
 let _closingFromHistory = false;
-modal.addEventListener("close", () => {
+function onSheetClosed() {
   _selectedStation = null;
+  if (lightbox.open) lightbox.close();
   if (_closingFromHistory) _closingFromHistory = false;
   else if (history.state && history.state.mcoDetail) history.back();
   else updateUrl();
-  restoreFocus(_galleryOpener);
-  _galleryOpener = null;
-});
-// Back / Forward (MCO.onUrlState): the only pushed entries are gallery
-// openings, so all a history move does here is close or (re)open the gallery.
+  MCO.announce('Station photos closed.');
+}
+// Back / Forward (MCO.onUrlState): the only pushed entries are station
+// openings, so all a history move does here is close or (re)open the sheet.
 MCO.onUrlState((params) => {
   // The slot is replaced, never pushed, so it only differs here if an entry
   // was written by hand; follow it if so. Silent: the entry is already the
@@ -954,17 +995,15 @@ MCO.onUrlState((params) => {
   }
   const st = (params.get('station') || '').toLowerCase();
   if (st && _featureByStation.has(st)) {
-    if (!modal.open) openModalByStation(st, null, { push: false });
+    if (!sheetOpen()) openStation(st, null, { push: false });
     else if (st !== _selectedStation) renderGallery(st, { writeUrl: false });
-  } else if (modal.open) {
+  } else if (sheetOpen()) {
     _closingFromHistory = true;
     _galleryStale = false;   // no re-render (and so no URL write) on the way out
     if (lightbox.open) lightbox.close();
-    modal.close();
+    sheet.close();
   }
 });
-document.getElementById("modal-close").addEventListener("click", () => modal.close());
-modal.addEventListener("click", (e) => { if (e.target === modal) modal.close(); });
 document.getElementById("btn-station-prev").addEventListener("click", () => stepGalleryStation(-1));
 document.getElementById("btn-station-next").addEventListener("click", () => stepGalleryStation(+1));
 
@@ -1005,10 +1044,10 @@ lightbox.addEventListener("close", () => {
   lightboxImg.src = BLANK_IMG;   // not "" — that re-requests the page itself
   if (_galleryStale) { renderGallery(_selectedStation); _galleryStale = false; }
   // The opener is gone if the grid was rebuilt for a new station: fall back to
-  // the same direction's photo, then the close button. Never <main> — it is
-  // inert while the gallery dialog is still open.
+  // the same direction's photo, then the sheet's close button. Never <main>
+  // while the sheet is open: in its full detent on compact <main> is inert.
   const target = (_lightboxOpener && _lightboxOpener.isConnected) ? _lightboxOpener
-    : (photoGrid.querySelector(`.photo-btn[data-dir="${_lightboxDir}"]`) || document.getElementById("modal-close"));
+    : (photoGrid.querySelector(`.photo-btn[data-dir="${_lightboxDir}"]`) || sheetEl.querySelector('[data-close-sheet]'));
   restoreFocus(target);
   _lightboxOpener = null; _lightboxStation = null; _lightboxDir = null;
 });
@@ -1017,8 +1056,9 @@ lightbox.addEventListener("click", (e) => { if (e.target === lightbox) lightbox.
 document.getElementById("lightbox-prev").addEventListener("click", () => stepLightboxStation(-1));
 document.getElementById("lightbox-next").addEventListener("click", () => stepLightboxStation(+1));
 
-// ←/→ step stations in whichever dialog is open. The listeners sit on the
-// dialogs themselves (siblings, not nested) so only the open one reacts. Arrow
+// ←/→ step stations in the sheet or the lightbox. The listeners sit on the
+// two surfaces themselves (siblings, not nested) so only the one holding
+// focus reacts; the sheet's grip keeps ↑/↓ for its detents. Arrow
 // keys aren't printable characters, so this is outside the ?kbd=off opt-out
 // (WCAG 2.1.4 covers letters, punctuation, numbers and symbols).
 function arrowStepper(step) {
@@ -1028,7 +1068,7 @@ function arrowStepper(step) {
     else if (e.key === "ArrowRight") { e.preventDefault(); step(+1); }
   };
 }
-modal.addEventListener("keydown", arrowStepper(stepGalleryStation));
+sheetEl.addEventListener("keydown", arrowStepper(stepGalleryStation));
 lightbox.addEventListener("keydown", arrowStepper(stepLightboxStation));
 
 // Horizontal swipe on the enlarged photo steps stations — lightbox only; in
@@ -1050,19 +1090,19 @@ lightbox.addEventListener("touchend", (e) => {
 }, { passive: false });
 
 // ── Info modal ────────────────────────────────────────────────────────────────
-MCO.initInfoModal({ dialog: infoModal, trigger: document.getElementById("btn-info") });
-// First-visit auto-open, suppressed over deep links (someone following a shared
-// URL shouldn't land behind a help dialog) and in headless export runs. The
-// seen flag is written at OPEN time so an unclosed dialog still counts.
+// The Data section's credit line is the kit's one wording (HOUSE-STYLE §1).
+document.getElementById("info-credit").textContent = MCO.credit({ source: 'Montana Mesonet' });
+// First-visit intro: the kit's (initInfoModal `intro`, 0.21.0). Once per key,
+// written as it opens; never over a deep link (someone following a shared URL
+// came for that view) or a headless export run, and never once focus has
+// left <body>. The pre-migration flag carries over first.
 const DEEP_LINK_PARAMS = ['station', 'date', 'time', 'dir', 'overlay', 'lng', 'export'];
 const hasDeepLink = DEEP_LINK_PARAMS.some((k) => urlParams.has(k));
-const seenIntro = MCO.lsGet(LS_SEEN) === '1' || MCO.lsGet(LS_SEEN_OLD) === '1';
-if (!seenIntro && !hasDeepLink) {
-  setTimeout(() => {
-    if (!infoModal.open && !modal.open) infoModal.showModal();
-    MCO.lsSet(LS_SEEN, '1');
-  }, 350);
-}
+if (MCO.lsGet(LS_SEEN) === null && MCO.lsGet(LS_SEEN_OLD) === '1') MCO.lsSet(LS_SEEN, '1');
+MCO.initInfoModal({
+  dialog: infoModal, trigger: document.getElementById("btn-info"),
+  intro: { key: LS_SEEN, skip: hasDeepLink },
+});
 
 // ── Boundaries toggle (county lines + tribal nations, together) ───────────────
 const BOUNDARY_LAYERS = ["counties-line", "tribal-fill", "tribal-line", "tribal-label"];
@@ -1107,28 +1147,36 @@ async function copyShareLink() {
 }
 document.getElementById("btn-share").addEventListener("click", copyShareLink);
 
-// ── Landscape rail + drawer (kit 0.10.0) ──────────────────────────────────────
-// On short landscape screens (MCO.viewport.RAIL_MQ) the navbar is the kit's
-// left rail and the full control set lives in its drawer. MCO.initNavRail owns
-// the disclosure: aria-expanded on the menu button, focus into the drawer on
-// open (the search field first), everything else inert under the scrim, Esc /
-// the scrim / the button to close with focus back on the button, and closing
-// when a rotation leaves rail mode. The app keeps its three hand-offs (HOUSE-
-// STYLE §3 Short landscape): `/` opens the drawer on the search field, a search
-// result closes it without restoring focus, and Export / the info dialog close
-// it first (the map has to be visible for them).
+// ── Phone bar: one-row bar + rail, and the nav drawer (kit 0.21.0) ─────────────
+// data-rail="compact": on a portrait phone the bar is one row (badge · day
+// stepper · search · ☰) and the full control set opens as a right drawer;
+// on short landscape (MCO.viewport.RAIL_MQ) the same children are the left
+// rail, with the drawer beside it. MCO.initNavRail owns both: aria-expanded
+// on the buttons, focus into the drawer on open (the search field first),
+// the page and the rest of the bar inert under the scrim, Esc / the scrim /
+// the button to close with focus back on that button, and closing when a
+// rotation changes mode. The bar's search button opens the drawer on the
+// field. The app keeps its hand-offs (HOUSE-STYLE §3): `/` opens the drawer
+// on the search field, a search result closes it without restoring focus,
+// and Export / the info dialog close it first (the map has to be visible).
 const btnMenu = document.getElementById('btn-menu');
 const navRail = MCO.initNavRail({
   toggle: btnMenu,
   drawer: document.getElementById('nav-drawer'),
   scrim: document.getElementById('rail-scrim'),
   initialFocus: searchInput,
+  search: { toggle: btnSearchToggle, input: searchInput },
 });
 for (const id of ['btn-export', 'btn-info']) {
   document.getElementById(id).addEventListener('click', () => navRail.close({ restoreFocus: false }));
 }
+// The bar's height as --chrome-h, so the end-docked sheet starts below it
+// rather than over the navbar (the bar is in flow, not .is-sticky, so the kit
+// doesn't publish it on its own). The rail zeroes it at short landscape.
+MCO.metrics.observe('--chrome-h', document.getElementById('navbar'));
 
-// Date/time/direction at a glance, since the drawer is usually closed.
+// Date/time/direction at a glance between the bar's day steppers, since the
+// drawer is usually closed.
 // A function declaration with its own lookups: buildDirectionControls and
 // updateUrl may call it before this part of the script has run.
 function updateRail() {
@@ -1153,12 +1201,11 @@ window.addEventListener("keydown", (e) => {
   if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey) {
     const t = e.target;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+    // A modal surface (a dialog, the full sheet on compact) owns the keys.
+    if (MCO.overlay.isBlocking()) return;
     e.preventDefault();
-    // Rail mode: the field lives in the drawer.
-    if (navRail.isRail()) { navRail.open(searchInput); return; }
-    // Below 460px the field is collapsed — open the overlay instead of focusing
-    // a hidden input (which would silently do nothing).
-    if (searchCollapse.isCollapsed()) { searchCollapse.open(); return; }
+    // On a phone (rail or one-row bar) the field lives in the nav drawer.
+    if (navRail.isRail() || navRail.isDrawerMode()) { navRail.open(searchInput); return; }
     searchInput.focus();
     searchInput.select();
   }
