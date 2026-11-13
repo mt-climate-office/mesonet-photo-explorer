@@ -401,7 +401,8 @@ async function loadData() {
 // slots that haven't cleared the processing lag are listed but disabled), the
 // wanted time and direction kept sticky across days, the radio fieldset of
 // directions and its <select> fallback, and the ‹/› day steppers (the
-// desktop bar's and the control bar's). Initial state: ?date / ?time / ?dir (validated) > the latest slot,
+// desktop bar's and the control bar's), with ← / → stepping the day from
+// anywhere (arrowKeys, kit 1.0.0; ?kbd=off turns it off). Initial state: ?date / ?time / ?dir (validated) > the latest slot,
 // North. Only directions some placed station shot at the selected slot are
 // offered. A move the visitor did not ask for (a date before photos start, a
 // time that day never offered or not in yet, a direction nobody shot) comes
@@ -450,6 +451,11 @@ function initControls() {
       { prev: document.getElementById('btn-date-prev'), next: document.getElementById('btn-date-next') },
       { prev: document.getElementById('btn-rail-prev'), next: document.getElementById('btn-rail-next') },
     ],
+    // ← / → step the day (kit 1.0.0; Kyle, 2026-11-13: every date stepper).
+    // The kit drives whichever pair is showing. Inside the open station panel
+    // and the lightbox the app's own ← / → (station stepping) win: their
+    // handlers call preventDefault() and the kit stands down.
+    arrowKeys: true,
     views: { group: document.getElementById('dir-btns'), select: document.getElementById('dir-select') },
     // The 1400 label edge, not the kit's default 1060: this bar no longer fits
     // its segments below it with the 0.10.0 lockup (index.html, Responsive).
@@ -1049,9 +1055,11 @@ document.getElementById("lightbox-next").addEventListener("click", () => stepLig
 
 // ←/→ step stations in the sheet or the lightbox. The listeners sit on the
 // two surfaces themselves (siblings, not nested) so only the one holding
-// focus reacts. Arrow keys aren't printable characters, so this is outside
-// the ?kbd=off opt-out (WCAG 2.1.4 covers letters, punctuation, numbers and
-// symbols).
+// focus reacts. Their preventDefault() makes the kit's ← / → day stepping
+// (initPhotoControls arrowKeys, kit 1.0.0) stand down, so inside the panel
+// the arrows step stations, not days. Arrow keys aren't printable
+// characters, so this is outside the ?kbd=off opt-out (WCAG 2.1.4 covers
+// letters, punctuation, numbers and symbols).
 function arrowStepper(step) {
   return (e) => {
     if (e.altKey || e.ctrlKey || e.metaKey) return;
