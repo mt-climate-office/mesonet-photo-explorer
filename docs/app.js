@@ -400,8 +400,8 @@ async function loadData() {
 // cleared slot), the Time menu built per date from the schedule (today's
 // slots that haven't cleared the processing lag are listed but disabled), the
 // wanted time and direction kept sticky across days, the radio fieldset of
-// directions and its <select> fallback, and the ▲/▼ day steppers (navbar and
-// rail). Initial state: ?date / ?time / ?dir (validated) > the latest slot,
+// directions and its <select> fallback, and the ‹/› day steppers (the
+// desktop bar's and the control bar's). Initial state: ?date / ?time / ?dir (validated) > the latest slot,
 // North. Only directions some placed station shot at the selected slot are
 // offered. A move the visitor did not ask for (a date before photos start, a
 // time that day never offered or not in yet, a direction nobody shot) comes
@@ -471,7 +471,7 @@ function initControls() {
       refreshMapImages();
     },
   });
-  updateRail();
+  updateControlBar();
 }
 // A tab left open past a slot's lag: re-read the bounds and today's slots as
 // the menu is about to open (so 3:00 PM is selectable once it has cleared),
@@ -483,8 +483,9 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden && controls) controls.refresh();
 });
 
-// Phone bar and rail: one button steps through the directions the selected
-// slot offers (a hot control in both orientations; desktop keeps the select).
+// Control bar (portrait bottom bar and the foot of the landscape rail): one
+// button steps through the directions the selected slot offers (Kyle,
+// 2026-11-12: the phone control for direction; desktop keeps the select).
 document.getElementById("btn-rail-dir").addEventListener("click", () => {
   if (!controls) return;
   const dirs = controls.views();
@@ -765,10 +766,9 @@ const searchBox = MCO.initSearchBox({
 function selectStation(stationId) {
   // Whichever control the visitor came from becomes the sheet's opener, so
   // closing it returns them there. On a phone the field closes with the nav
-  // drawer here, so a bar button that stays on screen takes focus back: the
-  // search button in the one-row bar, the menu button in the rail.
-  const opener = navRail.isDrawerMode() ? btnSearchToggle
-               : navRail.isRail() ? btnMenu : searchInput;
+  // drawer here, so the bar's search button, which stays on screen in the
+  // one-row bar and (kit 1.0.0) in the rail, takes focus back.
+  const opener = (navRail.isDrawerMode() || navRail.isRail()) ? btnSearchToggle : searchInput;
   navRail.close({ restoreFocus: false });
   flyToStation(stationId, opener);
 }
@@ -980,7 +980,7 @@ MCO.onUrlState((params) => {
     };
     if (want.date !== cur.date || want.time !== cur.time || want.view !== cur.view) {
       controls.set(want, { silent: true });
-      updateRail();
+      updateControlBar();
       refreshMapImages();
     }
   }
@@ -1049,11 +1049,9 @@ document.getElementById("lightbox-next").addEventListener("click", () => stepLig
 
 // ←/→ step stations in the sheet or the lightbox. The listeners sit on the
 // two surfaces themselves (siblings, not nested) so only the one holding
-// focus reacts. Their preventDefault() makes the kit's ← / → day stepping
-// (initPhotoControls arrowKeys, kit 1.0.0) stand down, so inside the panel
-// the arrows step stations, not days. Arrow keys aren't printable
-// characters, so this is outside the ?kbd=off opt-out (WCAG 2.1.4 covers
-// letters, punctuation, numbers and symbols).
+// focus reacts. Arrow keys aren't printable characters, so this is outside
+// the ?kbd=off opt-out (WCAG 2.1.4 covers letters, punctuation, numbers and
+// symbols).
 function arrowStepper(step) {
   return (e) => {
     if (e.altKey || e.ctrlKey || e.metaKey) return;
@@ -1140,12 +1138,13 @@ async function copyShareLink() {
 }
 document.getElementById("btn-share").addEventListener("click", copyShareLink);
 
-// ── Phone bar: one-row bar + rail, and the nav drawer (kit 0.21.0) ─────────────
-// data-rail="compact": on a portrait phone the bar is one row (badge · day
-// stepper · direction cycle · search · ☰) and the full control set opens as
-// a right drawer;
-// on short landscape (MCO.viewport.RAIL_MQ) the same children are the left
-// rail, with the drawer beside it. MCO.initNavRail owns both: aria-expanded
+// ── Phone bar: one-row bar + rail, and the nav drawer ────────────────────────
+// data-rail="compact": on a portrait phone the bar is one row (badge ·
+// search · ☰) and the full control set opens as a right drawer; on short
+// landscape (MCO.viewport.RAIL_MQ) the bar is the rail at the right edge
+// (kit 1.0.0), with the drawer beside it. The time controls are the kit's
+// bottom control bar (#controlbar), at the foot of the rail in landscape.
+// MCO.initNavRail owns both: aria-expanded
 // on the buttons, focus on the drawer itself on open (kit 0.21.2: not the
 // search field, which raised the phone keyboard over the drawer),
 // the page and the rest of the bar inert under the scrim, Esc / the scrim /
@@ -1164,25 +1163,20 @@ const navRail = MCO.initNavRail({
 for (const id of ['btn-export', 'btn-info']) {
   document.getElementById(id).addEventListener('click', () => navRail.close({ restoreFocus: false }));
 }
-// The bar's height as --chrome-h, which the kit's phone bottom sheet keeps
-// clear of (its full-detent max-height). The end-docked sheet measures the
-// bar itself since kit 0.21.1. The rail zeroes it at short landscape.
-MCO.metrics.observe('--chrome-h', document.getElementById('navbar'));
-
-// Date/time/direction at a glance between the bar's day steppers, since the
-// drawer is usually closed.
+// Date/time/direction at a glance in the control bar, between its day
+// steppers, since the drawer is usually closed.
 // A function declaration with its own lookups: buildDirectionControls and
 // updateUrl may call it before this part of the script has run.
-function updateRail() {
+function updateControlBar() {
   const railReadout = document.getElementById('rail-readout');
   const btnRailDir  = document.getElementById('btn-rail-dir');
   const st = sel();
   if (!st || !st.time) return;
   const d = new Date(`${st.date}T12:00:00Z`);
   const md = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-  // Real separators, so the text reads "Nov 12, 2026, 12:00 PM" stacked or
-  // not: the commas show, and the spaces between the spans collapse when
-  // they stack but keep the words apart otherwise and for a screen reader.
+  // Real separators, so the text reads "Nov 12, 2026, 12:00 PM" whether the
+  // spans sit on one line (the bottom bar) or stack (the rail's foot): the
+  // commas show, and the spaces keep the words apart and read right.
   const parts = [`${md},`, `${d.getUTCFullYear()},`, P.slotLabel(st.time)].map(t => {
     const span = document.createElement('span'); span.textContent = t; return span;
   });
@@ -1265,7 +1259,7 @@ function updateUrl({ push = false, state } = {}) {
   if (push) MCO.pushUrlState(params, { state });
   else MCO.replaceUrlState(params);
   updateSocialMeta();
-  updateRail();
+  updateControlBar();
 }
 
 // ── Export (PNG with MCO branding) ────────────────────────────────────────────

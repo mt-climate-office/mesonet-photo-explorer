@@ -286,26 +286,17 @@
       .controls   { flex-wrap: nowrap; }
     }
 
-    /* ── Phone bar (kit 0.21.0: .mco-navbar[data-rail="compact"] +
-       MCO.initNavRail). The kit owns the one-row bar, the 56px landscape
-       rail, the drawers (position, display, transition) and the un-hiding of
-       the lockup, labels and button text inside them. What stays here is
-       this app's own content: the date readout between the day steppers,
-       the rail's direction cycle, and how its control groups stack in the
-       drawer. The query is MCO.viewport.RAIL_MQ OR ≤640px, i.e. every
+    /* ── Phone bar (kit .mco-navbar[data-rail="compact"] + MCO.initNavRail)
+       The kit owns the one-row bar, the right-edge rail (1.0.0), the
+       drawers (position, display, transition), the un-hiding of the lockup,
+       labels and button text inside them, and the bottom control bar
+       (.mco-controlbar) with its readout. What stays here is this app's own
+       content: how its control groups stack in the drawer, and the direction
+       cycle's label. The query is MCO.viewport.RAIL_MQ OR ≤640px, i.e. every
        viewport where .mco-nav-drawer is a drawer (rail or row) at first
        paint. Since kit 0.21.1 the bar also folds ABOVE 640px wherever it
        would wrap (.is-folded), so the drawer rules are repeated for that
-       state after this block: KEEP THE TWO IN SYNC.
-       The readout needs no query: it lives in .mco-rail, which the kit shows
-       only as the rail or the folded bar, and it is stacked (month and day ·
-       year · time) wherever it shows. */
-    .rail-readout {
-      margin: 0; text-align: center; line-height: 1.25;
-      font-size: 0.66rem; font-weight: 500; color: var(--text-secondary);
-      white-space: nowrap;
-    }
-    .rail-readout span { display: block; }
+       state after this block: KEEP THE TWO IN SYNC. */
     @media (max-height: 560px) and (orientation: landscape), (max-width: 640px) {
       /* kit-override: a little more air between the stacked groups than the
          kit's bar gap. */
@@ -313,47 +304,52 @@
       #nav-drawer .control-group { flex-direction: column; align-items: stretch; gap: 0.25rem; }
       #nav-drawer .date-stepper input[type="date"] { flex: 1; min-width: 0; }
       #nav-drawer .time-select { width: 100%; }
-      /* kit-override: the search list stays inside the short viewport. */
-      .mco-nav-drawer .mco-search-list { max-height: 50dvh; }
+      /* kit-override: in the drawer the "/" hint goes (a phone has no
+         keyboard to press it on) and the action buttons sit two by two. */
       .mco-nav-drawer .search-kbd { display: none; }
       .mco-nav-drawer .nav-meta {
         display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;
       }
     }
     /* The same drawer, folded above 640px (kit 0.21.1 fold-to-fit).
-       kit-override: app rules keyed on the kit's .is-folded state. */
-    .mco-navbar[data-rail="compact"].is-folded .rail-readout { min-width: 3.5rem; }
-    /* kit-override: as above, more air between the stacked groups. */
+       kit-override: as above, more air between the stacked groups. */
     .mco-navbar[data-rail="compact"].is-folded .mco-nav-drawer .controls { gap: 0.75rem; }
     .mco-navbar[data-rail="compact"].is-folded #nav-drawer .control-group { flex-direction: column; align-items: stretch; gap: 0.25rem; }
     /* kit-override: app controls fill the drawer's width, as on a phone. */
     .mco-navbar[data-rail="compact"].is-folded #nav-drawer .date-stepper input[type="date"] { flex: 1; min-width: 0; }
     .mco-navbar[data-rail="compact"].is-folded #nav-drawer .time-select { width: 100%; }
-    /* kit-override: as above, the search list stays inside the viewport. */
-    .mco-navbar[data-rail="compact"].is-folded .mco-nav-drawer .mco-search-list { max-height: 50dvh; }
+    /* kit-override: as above, no "/" hint and the action buttons two by two. */
     .mco-navbar[data-rail="compact"].is-folded .mco-nav-drawer .search-kbd { display: none; }
     .mco-navbar[data-rail="compact"].is-folded .mco-nav-drawer .nav-meta {
       display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;
     }
-    /* The direction cycle is a hot control wherever the phone bar shows:
-       the landscape rail, the one-row portrait bar and the bar folded above
-       640px (Kyle, 2026-11-12). The drawer keeps the direction menu, and the
-       desktop bar keeps the select (.mco-rail is hidden there). Mono label,
-       as it has always had in the rail. */
+    /* The direction cycle (in the control bar, wherever that shows): a mono
+       label, as it has always had. The drawer keeps the direction menu and
+       the desktop bar the select. */
     #btn-rail-dir { font: 600 0.72rem var(--font-mono); }
-    /* Same query as the kit's compact drawer (COMPACT_MQ minus RAIL_MQ). */
-    @media (max-width: 640px) and (orientation: portrait), (max-width: 640px) and (height > 560px) {
-      .rail-readout { min-width: 3.5rem; }
-    }
-    /* Below 360px the row (badge · ‹ · readout · › · direction · search · ☰,
-       seven 40px-class items) is 30px too wide at the kit's 8px gap. Tighten
-       this app's bar rather than drop a control: a 4px gap, and the readout
-       floor down to its widest text ("12:00 PM", 43.5px at 0.66rem). Targets
-       stay 40px; ☰ ends 6px from the right edge. */
-    @media (max-width: 359px) {
-      /* kit-override: this bar's seven items fit 320px only at a 4px gap. */
-      .mco-navbar[data-rail="compact"].is-folded { column-gap: var(--space-1); }
-      .mco-navbar[data-rail="compact"].is-folded .rail-readout { min-width: 2.75rem; }
+    /* The control bar's readout is three parts, "Nov 12," "2026," "12:00 PM"
+       (app.js), so it reads "Nov 12, 2026, 12:00 PM" at every
+       width (PR #13). kit-override: the kit's readout is one nowrap line;
+       here it may break BETWEEN the parts, never inside one, so the longest
+       date and time still fit beside four 44px buttons at 320px (two
+       lines there) instead of overflowing. */
+    #rail-readout { white-space: normal; }
+    #rail-readout span { white-space: nowrap; }
+    /* At the foot of the right rail (RAIL_MQ, as the kit's rail block).
+       kit-override: the kit's readout there is mono at --fs-xs with
+       overflow-wrap: anywhere, which splits "12:00 PM" across lines in the
+       44px column; stacked parts in the UI face fit whole ("12:00 PM" is
+       ~43.5px at 0.66rem), three lines, as the rail always showed them.
+       kit-override: `safe` keeps the bar's top reachable if a very short
+       screen overflows it (plain flex-end clips the first button above the
+       scroll origin). */
+    @media (max-height: 560px) and (orientation: landscape) {
+      html:not(.mco-bar-hold) #controlbar { justify-content: safe flex-end; }
+      html:not(.mco-bar-hold) #rail-readout {
+        font: 500 0.66rem/1.25 var(--font-ui); color: var(--text-secondary);
+        overflow-wrap: normal;
+      }
+      html:not(.mco-bar-hold) #rail-readout span { display: block; }
     }
 
     /* WCAG 2.5.5 — touch targets for app-owned controls (kit covers its own). */
@@ -375,11 +371,12 @@
     <img src="assets/mco-logo.png" alt="" class="logo-img" width="40" height="40">
   </a>
 
-  <!-- The phone bar (kit .mco-rail; data-rail="compact", 0.21.0). Hidden above
-       compact. On a portrait phone it flattens into ONE row: badge (left
-       edge) · the day stepper, prev · date · next · the direction cycle ·
+  <!-- The phone bar (kit .mco-rail; data-rail="compact"). Hidden above
+       compact. On a portrait phone the bar is ONE row: badge (left edge) ·
        search · ☰ (the first child, moved to the right edge by the kit). On a
-       landscape phone the same children are the 56px left rail. -->
+       landscape phone it is the 56px rail at the RIGHT edge (kit 1.0.0):
+       badge, ☰, search, then the control bar below at its foot. The time
+       controls are not here: they are the .mco-controlbar after the header. -->
   <div class="mco-rail" id="rail">
     <button type="button" class="nav-btn icon-only" id="btn-menu"
             aria-expanded="false" aria-controls="nav-drawer" aria-label="Map controls">
@@ -388,25 +385,8 @@
         <line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/>
       </svg>
     </button>
-    <button type="button" class="nav-btn mco-step" id="btn-rail-prev" aria-label="Previous day">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="3"
-           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <polyline points="15 18 9 12 15 6"/>
-      </svg>
-    </button>
-    <p class="rail-readout" id="rail-readout"></p>
-    <button type="button" class="nav-btn mco-step" id="btn-rail-next" aria-label="Next day">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="3"
-           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <polyline points="9 18 15 12 9 6"/>
-      </svg>
-    </button>
-    <!-- A hot control in the rail and the phone row (both orientations):
-         cycles through the directions the selected slot offers; label set
-         by app.js. The desktop bar keeps the select instead. -->
-    <button type="button" class="nav-btn icon-only rail-dir" id="btn-rail-dir" aria-label="Next camera direction">W</button>
-    <!-- Last in .mco-rail: in the phone row it opens the drawer on the search
-         field (MCO.initNavRail's search option). Hidden above compact. -->
+    <!-- Opens the drawer on the search field (MCO.initNavRail's search
+         option). Hidden above compact. -->
     <button type="button" class="nav-btn icon-only mco-search-toggle" id="btn-search-toggle"
             aria-expanded="false" aria-controls="nav-drawer" aria-label="Search stations">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
@@ -528,6 +508,33 @@
   </div>
   </div>
 </header>
+
+<!-- The bottom control bar (kit 1.0.0, .mco-controlbar; core wires it):
+     the time controls on a phone. Docked at the bottom wherever the bar is
+     folded (portrait phones, and the folded bar above 640px), at the foot of
+     the right rail in short landscape, hidden on the full desktop bar (which
+     has the date input, Time menu and Direction select) and while an
+     on-screen keyboard is up. The day stepper is a second pair for the same
+     date (MCO.photos.initPhotoControls); the readout shows date and time;
+     the direction cycle steps through the directions the selected slot
+     offers (the desktop bar keeps the select: Kyle, 2026-11-12). -->
+<div class="mco-controlbar" id="controlbar" role="group" aria-label="Date and direction">
+  <button type="button" class="nav-btn mco-step" id="btn-rail-prev" aria-label="Previous day">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="3"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polyline points="15 18 9 12 15 6"/>
+    </svg>
+  </button>
+  <p class="mco-controlbar-readout" id="rail-readout"></p>
+  <button type="button" class="nav-btn mco-step" id="btn-rail-next" aria-label="Next day">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="3"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polyline points="9 18 15 12 9 6"/>
+    </svg>
+  </button>
+  <!-- Label and accessible name set by app.js (updateControlBar). -->
+  <button type="button" class="nav-btn icon-only rail-dir" id="btn-rail-dir" aria-label="Next camera direction">W</button>
+</div>
 
 <!-- Phone drawer only (rail or row): dims the map while the nav drawer is open;
      a tap closes it. The kit scrim sits at --z-map-panel, below the navbar, so
