@@ -327,30 +327,6 @@
        label, as it has always had. The drawer keeps the direction menu and
        the desktop bar the select. */
     #btn-rail-dir { font: 600 0.72rem var(--font-mono); }
-    /* The control bar's readout is three parts, "Nov 12," "2026," "12:00 PM"
-       (app.js), so it reads "Nov 12, 2026, 12:00 PM" at every
-       width (PR #13). kit-override: the kit's readout is one nowrap line;
-       here it may break BETWEEN the parts, never inside one, so the longest
-       date and time still fit beside four 44px buttons at 320px (two
-       lines there) instead of overflowing. */
-    #rail-readout { white-space: normal; }
-    #rail-readout span { white-space: nowrap; }
-    /* At the foot of the right rail (RAIL_MQ, as the kit's rail block).
-       kit-override: the kit's readout there is mono at --fs-xs with
-       overflow-wrap: anywhere, which splits "12:00 PM" across lines in the
-       44px column; stacked parts in the UI face fit whole ("12:00 PM" is
-       ~43.5px at 0.66rem), three lines, as the rail always showed them.
-       kit-override: `safe` keeps the bar's top reachable if a very short
-       screen overflows it (plain flex-end clips the first button above the
-       scroll origin). */
-    @media (max-height: 560px) and (orientation: landscape) {
-      html:not(.mco-bar-hold) #controlbar { justify-content: safe flex-end; }
-      html:not(.mco-bar-hold) #rail-readout {
-        font: 500 0.66rem/1.25 var(--font-ui); color: var(--text-secondary);
-        overflow-wrap: normal;
-      }
-      html:not(.mco-bar-hold) #rail-readout span { display: block; }
-    }
 
     /* WCAG 2.5.5 — touch targets for app-owned controls (kit covers its own). */
     @media (hover: none) {

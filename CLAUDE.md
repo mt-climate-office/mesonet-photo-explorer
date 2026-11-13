@@ -41,12 +41,6 @@ Marked kit-overrides in this app:
   the compact bottom sheet).
 - `.control-label` keeps a base size and muted color (sentence case; the
   uppercase treatment was dropped in the 0.21.0 conformance pass).
-- The control bar's date readout (`#rail-readout`) breaks only between its
-  three parts ("Nov 12," "2026," "12:00 PM"), and at the foot of the rail it
-  stacks them in the UI face at 0.66rem: the kit's mono readout splits
-  "12:00 PM" in the 44px column. The rail's control bar uses
-  `justify-content: safe flex-end` so a very short screen can scroll to its
-  first button.
 - Between 641 and 1060px the bar may wrap to a second row (the kit tightens
   chrome there and the direction group is a `<select>`); the old `order` /
   `flex-basis` swap that lifted `.nav-meta` beside the brand is gone.
