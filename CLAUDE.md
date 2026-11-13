@@ -45,11 +45,13 @@ Marked kit-overrides in this app:
   `flex-basis` swap that lifted `.nav-meta` beside the brand is gone.
 
 **Phone bar** (kit 0.21.0, `.mco-navbar[data-rail="compact"]` +
-`MCO.initNavRail`): one row on a portrait phone, badge · the day stepper
-(prev · date/time readout · next, the hot control) · search · ☰ at the right
-edge, with everything else in a right drawer; on a landscape phone the same
-`.mco-rail` children are the 56px left rail (plus the direction cycle, which
-the one-row bar hides). The app keeps only its rail content and how its
+`MCO.initNavRail`): one row on a portrait phone, badge · the hot controls
+(the day stepper, prev · date/time readout · next, and the direction cycle
+`#btn-rail-dir`) · search · ☰ at the right edge, with everything else in a
+right drawer; on a landscape phone the same `.mco-rail` children are the 56px
+left rail. The direction cycle is a hot control in both orientations (Kyle,
+2026-11-12); the desktop bar keeps the select. Below 360px the row fits only
+at a 4px gap (`index.html`, kit-override). The app keeps only its rail content and how its
 control groups stack in the drawer, plus the hand-offs: `/` opens the drawer
 on the search field, a search result closes it without restoring focus,
 Export / info close it first. This app prototyped the rail (mco-web-style #38).

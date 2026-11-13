@@ -483,7 +483,8 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden && controls) controls.refresh();
 });
 
-// Rail: one button steps through the directions the selected slot offers.
+// Phone bar and rail: one button steps through the directions the selected
+// slot offers (a hot control in both orientations; desktop keeps the select).
 document.getElementById("btn-rail-dir").addEventListener("click", () => {
   if (!controls) return;
   const dirs = controls.views();
@@ -1149,7 +1150,8 @@ document.getElementById("btn-share").addEventListener("click", copyShareLink);
 
 // ── Phone bar: one-row bar + rail, and the nav drawer (kit 0.21.0) ─────────────
 // data-rail="compact": on a portrait phone the bar is one row (badge · day
-// stepper · search · ☰) and the full control set opens as a right drawer;
+// stepper · direction cycle · search · ☰) and the full control set opens as
+// a right drawer;
 // on short landscape (MCO.viewport.RAIL_MQ) the same children are the left
 // rail, with the drawer beside it. MCO.initNavRail owns both: aria-expanded
 // on the buttons, focus into the drawer on open (the search field first),
