@@ -182,6 +182,10 @@ export default {
         return { bar: hit(cb), prev: hit(document.getElementById('btn-rail-prev')), next: hit(document.getElementById('btn-rail-next')),
           dir: hit(document.getElementById('btn-rail-dir')), readout: ro.getClientRects().length ? ro.innerText.replace(/\s*\n\s*/g, ' ') : null,
           readoutOverflow: ro.scrollWidth > ro.clientWidth + 1,
+          // Kit 1.0.0 .is-tight: a rail too short for the readout keeps it for
+          // screen readers only (visually hidden); each part stays one line.
+          tight: cb.classList.contains('is-tight'),
+          partsWhole: [...ro.querySelectorAll(':scope > span')].every((sp) => sp.getClientRects().length === 1),
           navH: Math.round(nav.height), sw: document.documentElement.scrollWidth, vw: w, vh: innerHeight,
           tabbar: getComputedStyle(document.documentElement).getPropertyValue('--tabbar-h').trim(),
           menuGap: Math.round(w - menu.right), label: document.getElementById('btn-rail-dir').textContent, sel: document.getElementById('dir-select').value };
@@ -189,7 +193,8 @@ export default {
       if (vp.name === '1440') { check('[1440] no control bar on the desktop bar (the date input and Direction select stay)', !g.bar && !g.dir, JSON.stringify(g)); await close(); continue; }
       const btnsOk = [g.prev, g.next, g.dir].every((b) => b && b.ok && b.w >= 44 && b.h >= 44);
       check(`[${vp.name}] control bar: ‹ › and direction shown, hittable, ≥ 44px`, btnsOk, JSON.stringify(g));
-      check(`[${vp.name}] readout reads "Nov 12, 2026, 12:00 PM", not clipped`, g.readout === 'Nov 12, 2026, 12:00 PM' && !g.readoutOverflow, JSON.stringify({ readout: g.readout, overflow: g.readoutOverflow }));
+      check(`[${vp.name}] readout reads "Nov 12, 2026, 12:00 PM", ${g.tight ? 'kept for screen readers in a tight rail' : 'not clipped, no part broken'}`,
+        g.readout === 'Nov 12, 2026, 12:00 PM' && g.partsWhole && (g.tight || !g.readoutOverflow), JSON.stringify({ readout: g.readout, overflow: g.readoutOverflow, tight: g.tight, partsWhole: g.partsWhole }));
       if (vp.name === '750x340') {
         check('[750x340] control bar at the foot of the right rail', g.bar && g.bar.r === g.vw && g.bar.b === g.vh && g.bar.w <= 64 && g.tabbar === '0px', JSON.stringify(g.bar));
       } else {
