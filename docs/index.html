@@ -593,12 +593,13 @@
   </div>
 </dialog>
 
-<!-- Station detail: the kit sheet (MCO.initSheet, HOUSE-STYLE §3, 0.21.0) at
-     every width, end-docked above compact and a bottom sheet on compact. A
-     photo opens the lightbox below to enlarge it. -->
+<!-- Station detail: the kit panel (MCO.initSheet, HOUSE-STYLE §3) at every
+     width: end-docked above compact; on compact (kit 1.0.0) one state, full
+     height under the bar, with the bar and the control bar still live. The
+     × is the only close on a touch screen. A photo opens the lightbox below
+     to enlarge it. -->
 <section class="mco-sheet" id="station-sheet" aria-labelledby="sheet-title" data-state="closed" hidden>
   <div class="mco-sheet-head">
-    <button type="button" class="mco-sheet-grip" aria-label="Expand details" aria-expanded="false"></button>
     <h2 class="mco-sheet-title" id="sheet-title" tabindex="-1">Station photos</h2>
     <button type="button" class="modal-close" data-close-sheet aria-label="Close station photos">&times;</button>
   </div>

@@ -807,16 +807,15 @@ function noticeUnplacedStation(id) {
 }
 
 // ── Station sheet + lightbox ──────────────────────────────────────────────────
-// Station detail is the kit's sheet at every width (MCO.initSheet; HOUSE-
-// STYLE §3, 0.21.0): end-docked above compact, a bottom sheet with peek and
-// full detents on compact. It moves focus to its title on open and back to
+// Station detail is the kit's panel at every width (MCO.initSheet; HOUSE-
+// STYLE §3): end-docked above compact; on compact (kit 1.0.0) one state,
+// full height under the bar. It moves focus to its title on open and back to
 // the opener on close (#main for a deep link). Tapping a photo opens the
 // lightbox dialog to enlarge it.
 const sheet = MCO.initSheet({
   sheet: sheetEl,
-  peekHeight: 'auto',   // the head, the stamp row and the first photo ([data-peek])
-  // The full detent on compact is modal; the lightbox the sheet opens must
-  // stay usable on top of it.
+  // On compact the panel is modal; the lightbox it opens must stay usable on
+  // top of it. (The kit takes the bar and the control bar out of this set.)
   inertRoots: () => MCO.overlay.siblingsOf(sheetEl, [lightbox]),
   fallbackFocus: mainEl,
   onState: (state) => { if (state === 'closed') onSheetClosed(); },
@@ -881,18 +880,11 @@ function renderGallery(stationId, { writeUrl = true } = {}) {
 
   photoGrid.replaceChildren();
   const validDirs = _schedule.tokens.filter(dir => shotAt(stationId, dir, st));
-  // The first card (or the empty message) is the bottom of the compact
-  // sheet's peek: one row of photos shows before the visitor expands it.
-  const markPeek = () => {
-    const first = photoGrid.firstElementChild;
-    if (first) first.setAttribute('data-peek', '');
-  };
   const showEmpty = () => {
     const msg = document.createElement("p");
     msg.className = "photo-empty";
     msg.textContent = "No photos available for this station at the selected time.";
     photoGrid.append(msg);
-    markPeek();
   };
   if (validDirs.length === 0) showEmpty();
   validDirs.forEach(dir => {
@@ -916,7 +908,6 @@ function renderGallery(stationId, { writeUrl = true } = {}) {
     img.addEventListener("error", () => {
       card.remove();
       if (!photoGrid.querySelector(".photo-card")) showEmpty();
-      else markPeek();
     });
     btn.addEventListener("click", () => openLightbox(stationId, dir, btn));
     btn.append(img);
@@ -926,7 +917,6 @@ function renderGallery(stationId, { writeUrl = true } = {}) {
     card.append(btn, label);
     photoGrid.append(card);
   });
-  markPeek();
 
   _selectedStation = stationId;
   if (writeUrl) updateUrl();
@@ -946,7 +936,7 @@ function openStation(stationId, opener, { push = true } = {}) {
   _galleryStale = false;
   const n = renderGallery(stationId, { writeUrl: false });
   updateUrl(push && !wasOpen ? { push: true, state: { mcoDetail: stationId } } : {});
-  sheet.open('peek', { opener: opener || document.activeElement });
+  sheet.open({ opener: opener || document.activeElement });
   MCO.announce(n
     ? `Photos for ${f.name} opened, ${n} photos.`
     : `Photos for ${f.name} opened, no photos for this date.`);
@@ -958,9 +948,9 @@ function stepGalleryStation(delta) {
   const n = renderGallery(r.id);
   MCO.announce(`Photos for ${_featureByStation.get(r.id).name}, ${n} photos.${stepNote(r)}`);
 }
-// One close path for ×, Esc and a drag below peek alike (the kit calls
-// onState('closed')). The map deliberately never moves for a station step,
-// not even on close — the visitor is browsing photos, not the map.
+// One close path for × and Esc alike (the kit calls onState('closed')).
+// The map deliberately never moves for a station step, not even on close —
+// the visitor is browsing photos, not the map.
 // If this sheet pushed its entry, step Back over it, so the sheet's own close
 // and the browser's Back land on the same entry and the history never holds
 // two "closed" entries in a row; Forward reopens it either way. When Back
@@ -1059,9 +1049,11 @@ document.getElementById("lightbox-next").addEventListener("click", () => stepLig
 
 // ←/→ step stations in the sheet or the lightbox. The listeners sit on the
 // two surfaces themselves (siblings, not nested) so only the one holding
-// focus reacts; the sheet's grip keeps ↑/↓ for its detents. Arrow
-// keys aren't printable characters, so this is outside the ?kbd=off opt-out
-// (WCAG 2.1.4 covers letters, punctuation, numbers and symbols).
+// focus reacts. Their preventDefault() makes the kit's ← / → day stepping
+// (initPhotoControls arrowKeys, kit 1.0.0) stand down, so inside the panel
+// the arrows step stations, not days. Arrow keys aren't printable
+// characters, so this is outside the ?kbd=off opt-out (WCAG 2.1.4 covers
+// letters, punctuation, numbers and symbols).
 function arrowStepper(step) {
   return (e) => {
     if (e.altKey || e.ctrlKey || e.metaKey) return;
