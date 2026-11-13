@@ -215,7 +215,7 @@ function initMap() {
     style: MCO.map.cartoStyleUrl(),
     ...MCO.map.initialCamera(urlParams),
   });
-  MCO.map.addNavigation(map);                  // top-right, no compass
+  MCO.map.addNavigation(map);                  // kit default: top-left (1.0.0), no compass
   MCO.map.addFitControl(map);                  // fused into the zoom group
   zoomFloor = MCO.map.installZoomFloor(map);   // snap-back + resize refit
   // A basemap style that 404s or hangs never fires 'load': the kit retries

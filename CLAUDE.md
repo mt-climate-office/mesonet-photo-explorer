@@ -36,9 +36,9 @@ bot-regenerated `docs/preview.png`, not the kit's og-card.
 Marked kit-overrides in this app:
 - **No hillshade** — the photo mosaic is the figure; relief under opaque photo
   rasters would only show in the untiled west while competing with the imagery.
-- **Map controls beside the end-docked sheet**: the zoom group and attribution
-  move left of the open sheet above compact (the kit's autolift covers only
-  the compact bottom sheet).
+- **Map controls beside the end-docked sheet**: the attribution moves left of
+  the open sheet above compact. The zoom group is top-left (kit 1.0.0
+  default, Kyle 2026-11-13), clear of the end-docked sheet.
 - `.control-label` keeps a base size and muted color (sentence case; the
   uppercase treatment was dropped in the 0.21.0 conformance pass).
 - Between 641 and 1060px the bar may wrap to a second row (the kit tightens
