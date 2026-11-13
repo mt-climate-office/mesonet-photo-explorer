@@ -293,14 +293,20 @@
        this app's own content: the date readout between the day steppers,
        the rail's direction cycle, and how its control groups stack in the
        drawer. The query is MCO.viewport.RAIL_MQ OR ≤640px, i.e. every
-       viewport where .mco-nav-drawer is a drawer (rail or row). */
+       viewport where .mco-nav-drawer is a drawer (rail or row) at first
+       paint. Since kit 0.21.1 the bar also folds ABOVE 640px wherever it
+       would wrap (.is-folded), so the drawer rules are repeated for that
+       state after this block: KEEP THE TWO IN SYNC.
+       The readout needs no query: it lives in .mco-rail, which the kit shows
+       only as the rail or the folded bar, and it is stacked (month and day ·
+       year · time) wherever it shows. */
+    .rail-readout {
+      margin: 0; text-align: center; line-height: 1.25;
+      font-size: 0.66rem; font-weight: 500; color: var(--text-secondary);
+      white-space: nowrap;
+    }
+    .rail-readout span { display: block; }
     @media (max-height: 560px) and (orientation: landscape), (max-width: 640px) {
-      .rail-readout {
-        margin: 0; text-align: center; line-height: 1.25;
-        font-size: 0.66rem; font-weight: 500; color: var(--text-secondary);
-        white-space: nowrap;
-      }
-      .rail-readout span { display: block; }
       /* kit-override: a little more air between the stacked groups than the
          kit's bar gap. */
       .mco-nav-drawer .controls { gap: 0.75rem; }
@@ -313,6 +319,21 @@
       .mco-nav-drawer .nav-meta {
         display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;
       }
+    }
+    /* The same drawer, folded above 640px (kit 0.21.1 fold-to-fit).
+       kit-override: app rules keyed on the kit's .is-folded state. */
+    .mco-navbar[data-rail="compact"].is-folded .rail-readout { min-width: 3.5rem; }
+    /* kit-override: as above, more air between the stacked groups. */
+    .mco-navbar[data-rail="compact"].is-folded .mco-nav-drawer .controls { gap: 0.75rem; }
+    .mco-navbar[data-rail="compact"].is-folded #nav-drawer .control-group { flex-direction: column; align-items: stretch; gap: 0.25rem; }
+    /* kit-override: app controls fill the drawer's width, as on a phone. */
+    .mco-navbar[data-rail="compact"].is-folded #nav-drawer .date-stepper input[type="date"] { flex: 1; min-width: 0; }
+    .mco-navbar[data-rail="compact"].is-folded #nav-drawer .time-select { width: 100%; }
+    /* kit-override: as above, the search list stays inside the viewport. */
+    .mco-navbar[data-rail="compact"].is-folded .mco-nav-drawer .mco-search-list { max-height: 50dvh; }
+    .mco-navbar[data-rail="compact"].is-folded .mco-nav-drawer .search-kbd { display: none; }
+    .mco-navbar[data-rail="compact"].is-folded .mco-nav-drawer .nav-meta {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;
     }
     @media (max-height: 560px) and (orientation: landscape) {
       #btn-rail-dir { font: 600 0.72rem var(--font-mono); }

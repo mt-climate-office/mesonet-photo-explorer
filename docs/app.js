@@ -1186,9 +1186,13 @@ function updateRail() {
   if (!st || !st.time) return;
   const d = new Date(`${st.date}T12:00:00Z`);
   const md = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-  railReadout.replaceChildren(...[md, String(d.getUTCFullYear()), P.slotLabel(st.time)].map(t => {
+  // Real separators, so the text reads "Nov 12, 2026, 12:00 PM" stacked or
+  // not: the commas show, and the spaces between the spans collapse when
+  // they stack but keep the words apart otherwise and for a screen reader.
+  const parts = [`${md},`, `${d.getUTCFullYear()},`, P.slotLabel(st.time)].map(t => {
     const span = document.createElement('span'); span.textContent = t; return span;
-  }));
+  });
+  railReadout.replaceChildren(parts[0], ' ', parts[1], ' ', parts[2]);
   btnRailDir.textContent = P.shortLabel(st.view);
   btnRailDir.setAttribute('aria-label', `Camera direction ${P.viewName(st.view)}. Switch to next direction`);
 }
