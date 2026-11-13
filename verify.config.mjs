@@ -144,6 +144,46 @@ export default {
       check('[390] Esc closes the drawer, focus back on ☰', !e.open && e.focus === 'btn-menu', JSON.stringify(e));
       await close();
     }
+    // The direction cycle is a hot control in the phone bar in BOTH
+    // orientations (Kyle, 2026-11-12): visible and hittable in the portrait
+    // row (320 and 390), in the landscape rail (750×340), and in the bar
+    // folded above 640px (768); absent from the desktop bar (1440), which
+    // keeps the select. The portrait row stays one row ≤ 64px with no
+    // horizontal overflow (scrollWidth checked against the viewport width,
+    // not innerWidth, which a mobile layout viewport stretches to fit), ☰
+    // within 16px of the right edge on a phone. Four taps visit N/E/S/W and return,
+    // with the drawer's select, the URL and the label following.
+    for (const vp of [{ name: '320', width: 320, height: 568, touch: true }, { name: '390', width: 390, height: 844, touch: true },
+      { name: '750x340', width: 750, height: 340, touch: true }, { name: '768', width: 768, height: 1024, touch: true },
+      { name: '1440', width: 1440, height: 900 }]) {
+      const { page, close } = await open('', { ready: mosaicReady, viewport: vp });
+      const g = await page.evaluate((w) => {
+        const b = document.getElementById('btn-rail-dir'), r = b.getBoundingClientRect();
+        const nav = document.getElementById('navbar').getBoundingClientRect(), menu = document.getElementById('btn-menu').getBoundingClientRect();
+        const shown = !!b.offsetParent && r.width > 0;
+        return { shown, hit: shown && document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === b,
+          w: Math.round(r.width), h: Math.round(r.height), navH: Math.round(nav.height), sw: document.documentElement.scrollWidth, vw: w,
+          menuGap: Math.round(w - menu.right), label: b.textContent, sel: document.getElementById('dir-select').value };
+      }, vp.width);
+      if (vp.name === '1440') { check('[1440] no direction cycle in the desktop bar (the select stays)', !g.shown, JSON.stringify(g)); await close(); continue; }
+      check(`[${vp.name}] direction cycle shown, hittable, ≥ 40px`, g.shown && g.hit && g.w >= 40 && g.h >= 40, JSON.stringify(g));
+      // ☰ at the right edge is asserted at phone widths only: at 768 the kit
+      // 0.21.1 folded bar leaves it mid-row (K6, fixed in kit 0.21.2).
+      if (vp.name === '320' || vp.name === '390') check(`[${vp.name}] the bar is one row ≤ 64px, no overflow, ☰ ≤ 16px from the edge`, g.navH <= 64 && g.sw === g.vw && g.menuGap >= 0 && g.menuGap <= 16, JSON.stringify(g));
+      if (vp.name === '768') check('[768] the folded bar is one row ≤ 64px, no overflow', g.navH <= 64 && g.sw === g.vw, JSON.stringify(g));
+      if (vp.name === '320' || vp.name === '750x340') {
+        const seen = [];
+        for (let i = 0; i < 4; i++) {
+          await page.click('#btn-rail-dir'); await page.waitForTimeout(400);
+          seen.push(await page.evaluate(() => ({ label: document.getElementById('btn-rail-dir').textContent, sel: document.getElementById('dir-select').value,
+            url: new URLSearchParams(location.search).get('dir') || 'N', aria: document.getElementById('btn-rail-dir').getAttribute('aria-label') })));
+        }
+        const ok = seen.every((s) => s.label === s.sel && s.url === s.sel && s.aria.startsWith('Camera direction '))
+          && new Set(seen.map((s) => s.sel)).size === 4 && seen[3].sel === g.sel;
+        check(`[${vp.name}] four taps cycle the directions and return, select + URL in sync`, ok, JSON.stringify(seen.map((s) => s.label + s.sel + s.url)));
+      }
+      await close();
+    }
     {
       const { page, close } = await open('', { ready: mosaicReady });
       await page.click('#btn-counties'); await page.waitForTimeout(500);

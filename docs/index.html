@@ -335,15 +335,25 @@
     .mco-navbar[data-rail="compact"].is-folded .mco-nav-drawer .nav-meta {
       display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;
     }
-    @media (max-height: 560px) and (orientation: landscape) {
-      #btn-rail-dir { font: 600 0.72rem var(--font-mono); }
-    }
-    /* The phone row has room for one hot control, the day stepper; the
-       direction cycle is rail-only (the drawer has the direction menu).
-       Same query as the kit's compact drawer (COMPACT_MQ minus RAIL_MQ). */
+    /* The direction cycle is a hot control wherever the phone bar shows:
+       the landscape rail, the one-row portrait bar and the bar folded above
+       640px (Kyle, 2026-11-12). The drawer keeps the direction menu, and the
+       desktop bar keeps the select (.mco-rail is hidden there). Mono label,
+       as it has always had in the rail. */
+    #btn-rail-dir { font: 600 0.72rem var(--font-mono); }
+    /* Same query as the kit's compact drawer (COMPACT_MQ minus RAIL_MQ). */
     @media (max-width: 640px) and (orientation: portrait), (max-width: 640px) and (height > 560px) {
-      #btn-rail-dir { display: none; }
       .rail-readout { min-width: 3.5rem; }
+    }
+    /* Below 360px the row (badge · ‹ · readout · › · direction · search · ☰,
+       seven 40px-class items) is 30px too wide at the kit's 8px gap. Tighten
+       this app's bar rather than drop a control: a 4px gap, and the readout
+       floor down to its widest text ("12:00 PM", 43.5px at 0.66rem). Targets
+       stay 40px; ☰ ends 6px from the right edge. */
+    @media (max-width: 359px) {
+      /* kit-override: this bar's seven items fit 320px only at a 4px gap. */
+      .mco-navbar[data-rail="compact"].is-folded { column-gap: var(--space-1); }
+      .mco-navbar[data-rail="compact"].is-folded .rail-readout { min-width: 2.75rem; }
     }
 
     /* WCAG 2.5.5 — touch targets for app-owned controls (kit covers its own). */
@@ -367,9 +377,9 @@
 
   <!-- The phone bar (kit .mco-rail; data-rail="compact", 0.21.0). Hidden above
        compact. On a portrait phone it flattens into ONE row: badge (left
-       edge) · the day stepper, prev · date · next · search · ☰ (the first
-       child, moved to the right edge by the kit). On a landscape phone the
-       same children are the 56px left rail, plus the direction cycle. -->
+       edge) · the day stepper, prev · date · next · the direction cycle ·
+       search · ☰ (the first child, moved to the right edge by the kit). On a
+       landscape phone the same children are the 56px left rail. -->
   <div class="mco-rail" id="rail">
     <button type="button" class="nav-btn icon-only" id="btn-menu"
             aria-expanded="false" aria-controls="nav-drawer" aria-label="Map controls">
@@ -391,8 +401,9 @@
         <polyline points="9 18 15 12 9 6"/>
       </svg>
     </button>
-    <!-- Rail only (hidden in the phone row): cycles through the directions
-         the selected slot offers; label set by app.js. -->
+    <!-- A hot control in the rail and the phone row (both orientations):
+         cycles through the directions the selected slot offers; label set
+         by app.js. The desktop bar keeps the select instead. -->
     <button type="button" class="nav-btn icon-only rail-dir" id="btn-rail-dir" aria-label="Next camera direction">W</button>
     <!-- Last in .mco-rail: in the phone row it opens the drawer on the search
          field (MCO.initNavRail's search option). Hidden above compact. -->
