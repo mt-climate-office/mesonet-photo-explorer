@@ -31,7 +31,7 @@ const DASH_URL        = (s) => `https://mesonet.climate.umt.edu/dash/${s}`;
 // exports draw from the kit, never climate.umt.edu), loaded with CORS so the
 // canvas stays exportable. KEEP the version in step with the kit tags in
 // index.html. -on-light / -on-dark is picked by the card's own background.
-const KIT_ASSETS      = "https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.1/assets/";
+const KIT_ASSETS      = "https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.2/assets/";
 const WORDMARK_URL    = (onLight) => `${KIT_ASSETS}mco-wordmark-on-${onLight ? 'light' : 'dark'}.svg`;
 
 // This tool keeps the full public history (website DECISIONS D16, kit 0.15.0
@@ -1154,7 +1154,8 @@ document.getElementById("btn-share").addEventListener("click", copyShareLink);
 // a right drawer;
 // on short landscape (MCO.viewport.RAIL_MQ) the same children are the left
 // rail, with the drawer beside it. MCO.initNavRail owns both: aria-expanded
-// on the buttons, focus into the drawer on open (the search field first),
+// on the buttons, focus on the drawer itself on open (kit 0.21.2: not the
+// search field, which raised the phone keyboard over the drawer),
 // the page and the rest of the bar inert under the scrim, Esc / the scrim /
 // the button to close with focus back on that button, and closing when a
 // rotation changes mode. The bar's search button opens the drawer on the
@@ -1166,7 +1167,6 @@ const navRail = MCO.initNavRail({
   toggle: btnMenu,
   drawer: document.getElementById('nav-drawer'),
   scrim: document.getElementById('rail-scrim'),
-  initialFocus: searchInput,
   search: { toggle: btnSearchToggle, input: searchInput },
 });
 for (const id of ['btn-export', 'btn-info']) {

@@ -129,16 +129,27 @@ export default {
       check('?station=arskeogh (no camera) shows a notice and no sheet', /has no camera/.test(r.notice) && !r.sheet, JSON.stringify(r));
       await close();
     }
-    // The phone drawer (390): ☰ opens it with the page inert, Esc closes it
-    // and focus returns to ☰. The Boundaries chip toggles its layers.
+    // The phone drawer (390): ☰ opens it with the page inert and focus on
+    // the drawer itself, not the search field (kit 0.21.2, K1: the field
+    // raised the phone keyboard over the drawer); the search button still
+    // opens it on the field. Esc closes it and focus returns to ☰. The
+    // Boundaries chip toggles its layers.
     {
       const { page, close } = await open('', { ready: mosaicReady, viewport: { name: '390', width: 390, height: 844, touch: true } });
       const navH = await page.evaluate(() => Math.round(document.getElementById('navbar').getBoundingClientRect().height));
       check('[390] the phone bar is one row ≤ 64px', navH <= 64, `navH=${navH}`);
       await page.click('#btn-menu'); await page.waitForTimeout(400);
       const d = await page.evaluate(() => ({ open: document.getElementById('nav-drawer').classList.contains('is-open'),
-        mainInert: document.getElementById('main').inert, expanded: document.getElementById('btn-menu').getAttribute('aria-expanded') }));
+        mainInert: document.getElementById('main').inert, expanded: document.getElementById('btn-menu').getAttribute('aria-expanded'),
+        focus: document.activeElement && document.activeElement.id }));
       check('[390] ☰ opens the drawer, the page inert', d.open && d.mainInert && d.expanded === 'true', JSON.stringify(d));
+      check('[390] ☰ focuses the drawer, not the search field', d.focus === 'nav-drawer', JSON.stringify(d));
+      await page.keyboard.press('Escape'); await page.waitForTimeout(400);
+      await page.click('#btn-search-toggle'); await page.waitForTimeout(400);
+      const f = await page.evaluate(() => ({ open: document.getElementById('nav-drawer').classList.contains('is-open'), focus: document.activeElement && document.activeElement.id }));
+      check('[390] the search button opens the drawer on the field', f.open && f.focus === 'search-input', JSON.stringify(f));
+      await page.keyboard.press('Escape'); await page.waitForTimeout(400);
+      await page.click('#btn-menu'); await page.waitForTimeout(400);
       await page.keyboard.press('Escape'); await page.waitForTimeout(400);
       const e = await page.evaluate(() => ({ open: document.getElementById('nav-drawer').classList.contains('is-open'), focus: document.activeElement && document.activeElement.id }));
       check('[390] Esc closes the drawer, focus back on ☰', !e.open && e.focus === 'btn-menu', JSON.stringify(e));
@@ -167,9 +178,9 @@ export default {
       }, vp.width);
       if (vp.name === '1440') { check('[1440] no direction cycle in the desktop bar (the select stays)', !g.shown, JSON.stringify(g)); await close(); continue; }
       check(`[${vp.name}] direction cycle shown, hittable, ≥ 40px`, g.shown && g.hit && g.w >= 40 && g.h >= 40, JSON.stringify(g));
-      // ☰ at the right edge is asserted at phone widths only: at 768 the kit
-      // 0.21.1 folded bar leaves it mid-row (K6, fixed in kit 0.21.2).
-      if (vp.name === '320' || vp.name === '390') check(`[${vp.name}] the bar is one row ≤ 64px, no overflow, ☰ ≤ 16px from the edge`, g.navH <= 64 && g.sw === g.vw && g.menuGap >= 0 && g.menuGap <= 16, JSON.stringify(g));
+      // ☰ at the right edge at phone widths and in the bar folded at 768
+      // (kit 0.21.2, K6: the 0.21.1 folded bar left it mid-row there).
+      if (vp.name === '320' || vp.name === '390' || vp.name === '768') check(`[${vp.name}] the bar is one row ≤ 64px, no overflow, ☰ ≤ 16px from the edge`, g.navH <= 64 && g.sw === g.vw && g.menuGap >= 0 && g.menuGap <= 16, JSON.stringify(g));
       if (vp.name === '768') check('[768] the folded bar is one row ≤ 64px, no overflow', g.navH <= 64 && g.sw === g.vw, JSON.stringify(g));
       if (vp.name === '320' || vp.name === '750x340') {
         const seen = [];
