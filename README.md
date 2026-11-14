@@ -1,123 +1,63 @@
-# mesonet-photo-explorer
+# Mesonet Photo Explorer
 
-An interactive web map for browsing [Montana Mesonet](https://climate.umt.edu/mesonet/)
-station photos by date, time, and camera direction.
+A map of Montana Mesonet station photos, browsable by date, time and camera direction.
 
-**Live:** [mesonet.climate.umt.edu/photos](https://mesonet.climate.umt.edu/photos/) —
-the canonical URL. The same page is also served from its GitHub Pages origin at
-[mt-climate-office.github.io/mesonet-photo-explorer](https://mt-climate-office.github.io/mesonet-photo-explorer/).
+https://mesonet.climate.umt.edu/photos/
 
-A service of the [Montana Climate Office](https://climate.umt.edu).
-
----
-
-## How it works
-
-The explorer is a static single-page app in `docs/` (MapLibre GL JS, styled with
-[mco-web-style](https://github.com/mt-climate-office/mco-web-style)), published by GitHub
-Pages and reverse-proxied under `mesonet.climate.umt.edu/photos/`. It draws Montana as a
-grid of cells and fills each one with a station's latest photo.
-
-The grid *geometry* (`docs/grid.geojson`) is the only static piece — everything else is
-read live on each page load:
-
-| Source | Provides |
-|--------|----------|
-| `https://mesonet2.climate.umt.edu/api/stations` | Station list, network membership, names, coordinates |
-| `https://mesonet2.climate.umt.edu/api/stations/status` | Per-station status and grid-cell (`ace_grid`) assignment |
-| `https://data2.climate.umt.edu/mesonet/photos/schedule/schedule.json` (read by the kit's `MCO.photos`) | Per-station camera views, slot times, dated schedule periods, and first month with photos — published by [mesonet-cameras](https://github.com/mt-climate-office/mesonet-cameras) |
-| `https://data2.climate.umt.edu/mesonet/photos/webp/{thumb,large}/<station>/<station>_<TOKEN>_<UTC>.webp` | The WebP photo store itself (thumbnails for the mosaic, large frames for the lightbox) — also produced by mesonet-cameras |
-
-A station's cell appears once it is an active HydroMet station with photos online.
-**Because no station data is baked into the map, new stations show up automatically —
-nothing in this repo needs to be rebuilt when a station is added or removed.**
-
-Reading the schedule is the shared kit's job: `MCO.photos` in
-[mco-web-style](https://github.com/mt-climate-office/mco-web-style) (0.14.0+) parses it, builds
-the Time menu for whichever date is selected (the Mountain Time slots at least half of the
-cameras shot that day, so a change of cadence upstream appears here without a code change),
-decides which directions are offered, and runs the date / time / direction controls. If the
-chosen time wasn't shot on a day, the next one that was is shown, and the page says so.
-
-The public view shows North, East, South and West over the full archive (from 22 September
-2022), passing the kit's `fullHistory` option. Before the afternoon of 21 October 2026, "North"
-and "South" were aimed at the rain gauge and the snow stake; they are still shown, as they
-always were. Staff can see the instrument views with `?internal=1`.
-
-**This repo owns no photo processing and no AWS resources.** The capture, WebP rendering
-and schedule publishing live in
-[mesonet-cameras](https://github.com/mt-climate-office/mesonet-cameras); the `mco-mesonet`
-S3 bucket is managed by mco-aws (`stacks/mco-mesonet-bucket`); the `data2.climate.umt.edu`
-CDN is managed by mco-data-cdn. This repo is the viewer, nothing more.
-
----
-
-## Repository layout
-
-```
-docs/                          The explorer — published via GitHub Pages
-  index.html                   Single-page app (markup, CSP, app-specific CSS)
-  app.js                       App logic (classic script; uses window.MCO from mco-web-style)
-  grid.geojson                 Grid-cell geometry
-  data/                        Montana state / county / tribal boundary GeoJSON
-  assets/                      Favicons + vendored MCO logo
-  preview.png                  Social-share image (auto-generated daily)
-scripts/
-  generate_preview.py          Render preview.png from the live site (Playwright)
-mesonet-photo-explorer.R       Generates docs/grid.geojson (static grid geometry)
-data/                          Source grid shapefile (input to the R script)
-.github/workflows/preview.yml  Daily social-preview regeneration
-```
-
----
-
-## Running locally
-
-**Preview the explorer** — serve `docs/` and open it in a browser (it pulls live data from
-the API and the CDN, so no other setup is needed):
+## Run it
 
 ```bash
-python3 -m http.server -d docs 8000      # → http://localhost:8000
+python3 -m http.server -d docs 8000      # http://localhost:8000
+Rscript mesonet-photo-explorer.R         # only when the grid changes: writes docs/grid.geojson
 ```
 
-**Regenerate the grid geometry** — only when the grid definition changes:
+The page reads live data, so no other setup is needed.
+
+## Deploy
+
+Pushing `main` deploys. GitHub Pages publishes `docs/`, and the `mesonet_app` Caddyfile proxies it at `/photos/`.
+`.github/workflows/preview.yml` commits `docs/preview.png` to `main` daily. Pull before you push.
+`scripts/generate_preview.py` needs `?export=light&dir=W`, the 4 s delay and `#btn-export`. Keep all three.
+
+## URL parameters
+
+| Parameter | Values | What it does |
+|---|---|---|
+| `date` | `YYYY-MM-DD` | Photo date |
+| `time` | `15` or `09:30` | Photo time, Mountain Time |
+| `dir` | `N`, `E`, `S`, `W` | Camera direction (default `N`) |
+| `station` | station id, e.g. `aceabsar` | Opens that station's photos |
+| `lng`, `lat`, `zoom` | numbers | Map position |
+| `overlay` | `counties` | Shows county and tribal boundaries |
+| `theme` | `dark`, `light`, `high-contrast` | Color theme |
+| `kbd` | `off` | Turns off the `/` and day-stepping arrow keys |
+| `internal` or `view` | `1` or `internal` | Staff view: adds the instrument camera views |
+| `export` | `light`, `dark` | Clicks Export after 4 s in that theme (social preview) |
+
+## Data
+
+- Stations: `https://mesonet2.climate.umt.edu/api/stations?type=json`
+- Grid cells: `https://mesonet2.climate.umt.edu/api/stations/status?type=json` (`ace_grid`)
+- Camera schedule: `https://data2.climate.umt.edu/mesonet/photos/schedule/schedule.json`, read by the kit's `MCO.photos`
+- Photos: `https://data2.climate.umt.edu/mesonet/photos/webp/{thumb,large}/<station>/…webp`
+- Grid geometry: `docs/grid.geojson`, from `mesonet-photo-explorer.R` and `data/`
+
+Photos and the schedule come from the mesonet-cameras repo. This repo owns no AWS resources.
+
+## Tests
+
+There is no CI. From an mco-web-style checkout beside this one:
 
 ```bash
-Rscript mesonet-photo-explorer.R         # writes docs/grid.geojson
+node --check ../mesonet-photo-explorer/docs/app.js
+npx html-validate@9 ../mesonet-photo-explorer/docs/index.html
+node tools/verify/head.mjs       --root ../mesonet-photo-explorer --page docs/index.html
+node tools/verify/axe-matrix.mjs --config ../mesonet-photo-explorer/verify.config.mjs --root ../mesonet-photo-explorer --page docs/index.html
+node tools/verify/keyboard.mjs   --config ../mesonet-photo-explorer/verify.config.mjs --root ../mesonet-photo-explorer --page docs/index.html
 ```
 
-**Verify before pushing.** There is no CI for the page. Run the manual gates from
-mco-web-style's `MIGRATING.md` § "Verification recipe": `node --check docs/app.js`,
-`npx html-validate@9 docs/index.html`, and the app's `consumer-verify.mjs` harness
-(untracked — install `playwright` and `@axe-core/playwright` with `--no-save`).
+## Kit
 
----
+`mco-web-style` 1.0.0, pinned with SRI in `docs/index.html`.
 
-## Deploying
-
-**Pushing `main` is a production deploy, on two URLs:** GitHub Pages publishes `/docs` from
-`main`, and the same page is reverse-proxied at `mesonet.climate.umt.edu/photos/` (the
-`mesonet_app` Caddyfile).
-
-`.github/workflows/preview.yml` runs once a day (and on manual dispatch) and **commits
-`docs/preview.png` back to `main`** — always pull/rebase before pushing, or you race it.
-
-`scripts/generate_preview.py` drives the live page headlessly: it loads the Pages origin
-with `?export=light&dir=W` (west view, light theme), which clicks `#btn-export` after a 4-second delay and yields the PNG
-as a download. That timing, the query parameter and the button id are a contract —
-changing them silently breaks the social preview in production. Run the script locally
-against your changes first:
-
-```bash
-pip install playwright
-playwright install --with-deps chromium
-python scripts/generate_preview.py
-```
-
----
-
-## Data source
-
-Photos are captured by cameras at Montana Mesonet sites and served by the
-[Montana Climate Office](https://climate.umt.edu). The explorer reads all station and
-photo metadata live from the sources listed in [How it works](#how-it-works).
+Design rules: mco-web-style/HOUSE-STYLE.md

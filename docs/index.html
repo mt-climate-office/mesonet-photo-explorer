@@ -536,40 +536,45 @@
     <div class="info-modal-header">
       <div>
         <h2 class="info-modal-title" id="info-modal-title">Mesonet Photo Explorer</h2>
-        <p class="info-modal-subtitle">A service of the Montana Climate Office</p>
       </div>
       <button type="button" class="modal-close" id="info-modal-close" aria-label="Close" data-close-modal>&times;</button>
     </div>
 
-    <!-- The kit's info-modal outline (HOUSE-STYLE §1, 0.21.0): What this shows ·
-         How to use it · Share or bookmark · Data. -->
+    <!-- The kit's info-modal outline (HOUSE-STYLE §1): What this shows ·
+         How to use it · Share or bookmark · Data. Short by rule: 150 words
+         or fewer of visible text. -->
     <div class="info-section">
       <h3>What this shows</h3>
-      <p>Photos from the cameras on <a href="https://climate.umt.edu/mesonet/" target="_blank" rel="noopener">Montana Mesonet</a> HydroMet stations, one cell per station, all taken at the date, time and direction you choose. In 2020 the U.S. Army Corps of Engineers funded 205 HydroMet stations across central and eastern Montana, one per ~500 sq mi, and each carries a pan-tilt-zoom camera that photographs North, East, South and West on a schedule.</p>
-      <p>The cells tile a survey grid aligned with the Montana–North Dakota border, designed to keep distortion low across the <a href="https://climate.umt.edu/mesonet/umrb/" target="_blank" rel="noopener">Upper Missouri River Basin</a>. On this web map they appear as gently rotated squares. A cell with no photo had no picture at that time; its camera was offline or the photo has not arrived yet.</p>
+      <p>Photos from Montana Mesonet HydroMet cameras, one cell per station. Times are Mountain Time.</p>
+      <p>An empty cell has no photo for that time.</p>
+      <details>
+        <summary>About the grid</summary>
+        <p>The cells tile a survey grid aligned with the Montana–North Dakota border. The grid keeps distortion low across the <a href="https://climate.umt.edu/mesonet/umrb/" target="_blank" rel="noopener">Upper Missouri River Basin</a>. On this map the cells look slightly rotated.</p>
+      </details>
     </div>
 
     <div class="info-section">
       <h3>How to use it</h3>
       <ul>
-        <li><strong>Date &amp; Time</strong>: browse any date. The Time menu lists the times the cameras were scheduled to shoot on the chosen day. Step one day at a time with ‹ and › or the <kbd>←</kbd> and <kbd>→</kbd> keys. If you reach the map with Tab, the arrow keys pan it; after a click, <kbd>←</kbd> and <kbd>→</kbd> change the day and <kbd>↑</kbd> and <kbd>↓</kbd> pan. If the chosen time wasn't shot that day, the next one that was is shown, and the page says so. All times are Mountain Time.</li>
-        <li><strong>Direction</strong>: pick North, East, South or West to show that view across every station at once. On a phone, the direction button beside the date steps through them.</li>
-        <li><strong>Search</strong>: press <kbd>/</kbd> to jump to the search box, then <kbd>↑</kbd>/<kbd>↓</kbd> and <kbd>Enter</kbd> to fly to a station and open its photos.</li>
-        <li><strong>Select a station</strong>: click its cell to open the station's photos in a panel. Click or press <kbd>Enter</kbd> on a photo to enlarge it. In the panel, <kbd>←</kbd>/<kbd>→</kbd> or the arrow buttons step through stations rather than days; on a touch screen, swipe the enlarged photo.</li>
-        <li><strong>Zoom &amp; pan</strong>: scroll or pinch to zoom, drag to pan, and use the +/− and full-extent buttons at top left.</li>
-        <li><strong>Boundaries</strong>: show county lines and tribal nation boundaries, which lightly shade the photos.</li>
-        <li>The <kbd>/</kbd> shortcut and the <kbd>←</kbd>/<kbd>→</kbd> day keys can be turned off by adding <code>?kbd=off</code> to the URL. It sticks while you browse.</li>
+        <li>Pick a <strong>Date</strong>, <strong>Time</strong> and <strong>Direction</strong>. ‹ and › step one day.</li>
+        <li>Tap a cell for its photos, then a photo to enlarge it.</li>
+        <li>Use <strong>Search stations</strong> to open a station.</li>
+        <li>Tap <strong>Boundaries</strong> to show county and tribal lines.</li>
+        <li>Keys: <kbd>/</kbd> search, <kbd>←</kbd> <kbd>→</kbd> change the day or station, <kbd>Esc</kbd> close. Add <code>?kbd=off</code> to the address to turn off <kbd>/</kbd> and the day keys.</li>
       </ul>
     </div>
 
     <div class="info-section">
       <h3>Share or bookmark</h3>
-      <p>The address bar always holds the full view: date, time, direction, boundaries, the map's position and any open station. <strong>Share</strong> copies that link, and a bookmark returns to the same photos. <strong>Export</strong> downloads a PNG of the map.</p>
+      <p>The address holds this view. Copy it or tap <strong>Share</strong>. <strong>Export</strong> saves a PNG.</p>
     </div>
 
     <div class="info-section">
       <h3>Data</h3>
-      <p>Stations, their locations and their grid cells come from the Montana Mesonet API. The camera schedule and the photos come from the Mesonet photo archive, kept since September 2022.</p>
+      <ul>
+        <li><a href="https://mesonet2.climate.umt.edu/api/" target="_blank" rel="noopener">Montana Mesonet API</a>: stations, read when the page opens.</li>
+        <li><a href="https://data2.climate.umt.edu/mesonet/photos/" target="_blank" rel="noopener">Mesonet photo archive</a>: the photos. Reload for the newest.</li>
+      </ul>
       <!-- Filled from MCO.credit (app.js): never hand-typed. -->
       <p id="info-credit"></p>
     </div>
