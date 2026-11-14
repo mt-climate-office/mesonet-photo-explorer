@@ -31,7 +31,7 @@ const DASH_URL        = (s) => `https://mesonet.climate.umt.edu/dash/${s}`;
 // exports draw from the kit, never climate.umt.edu), loaded with CORS so the
 // canvas stays exportable. KEEP the version in step with the kit tags in
 // index.html. -on-light / -on-dark is picked by the card's own background.
-const KIT_ASSETS      = "https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.2/assets/";
+const KIT_ASSETS      = "https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.0.0/assets/";
 const WORDMARK_URL    = (onLight) => `${KIT_ASSETS}mco-wordmark-on-${onLight ? 'light' : 'dark'}.svg`;
 
 // This tool keeps the full public history (website DECISIONS D16, kit 0.15.0
@@ -215,7 +215,7 @@ function initMap() {
     style: MCO.map.cartoStyleUrl(),
     ...MCO.map.initialCamera(urlParams),
   });
-  MCO.map.addNavigation(map);                  // top-right, no compass
+  MCO.map.addNavigation(map);                  // kit default: top-left (1.0.0), no compass
   MCO.map.addFitControl(map);                  // fused into the zoom group
   zoomFloor = MCO.map.installZoomFloor(map);   // snap-back + resize refit
   // A basemap style that 404s or hangs never fires 'load': the kit retries
@@ -400,8 +400,9 @@ async function loadData() {
 // cleared slot), the Time menu built per date from the schedule (today's
 // slots that haven't cleared the processing lag are listed but disabled), the
 // wanted time and direction kept sticky across days, the radio fieldset of
-// directions and its <select> fallback, and the ▲/▼ day steppers (navbar and
-// rail). Initial state: ?date / ?time / ?dir (validated) > the latest slot,
+// directions and its <select> fallback, and the ‹/› day steppers (the
+// desktop bar's and the control bar's), with ← / → stepping the day from
+// anywhere (arrowKeys, kit 1.0.0; ?kbd=off turns it off). Initial state: ?date / ?time / ?dir (validated) > the latest slot,
 // North. Only directions some placed station shot at the selected slot are
 // offered. A move the visitor did not ask for (a date before photos start, a
 // time that day never offered or not in yet, a direction nobody shot) comes
@@ -450,6 +451,11 @@ function initControls() {
       { prev: document.getElementById('btn-date-prev'), next: document.getElementById('btn-date-next') },
       { prev: document.getElementById('btn-rail-prev'), next: document.getElementById('btn-rail-next') },
     ],
+    // ← / → step the day (kit 1.0.0; Kyle, 2026-11-13: every date stepper).
+    // The kit drives whichever pair is showing. Inside the open station panel
+    // and the lightbox the app's own ← / → (station stepping) win: their
+    // handlers call preventDefault() and the kit stands down.
+    arrowKeys: true,
     views: { group: document.getElementById('dir-btns'), select: document.getElementById('dir-select') },
     // The 1400 label edge, not the kit's default 1060: this bar no longer fits
     // its segments below it with the 0.10.0 lockup (index.html, Responsive).
@@ -471,7 +477,7 @@ function initControls() {
       refreshMapImages();
     },
   });
-  updateRail();
+  updateControlBar();
 }
 // A tab left open past a slot's lag: re-read the bounds and today's slots as
 // the menu is about to open (so 3:00 PM is selectable once it has cleared),
@@ -483,8 +489,9 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden && controls) controls.refresh();
 });
 
-// Phone bar and rail: one button steps through the directions the selected
-// slot offers (a hot control in both orientations; desktop keeps the select).
+// Control bar (portrait bottom bar and the foot of the landscape rail): one
+// button steps through the directions the selected slot offers (Kyle,
+// 2026-11-12: the phone control for direction; desktop keeps the select).
 document.getElementById("btn-rail-dir").addEventListener("click", () => {
   if (!controls) return;
   const dirs = controls.views();
@@ -765,10 +772,9 @@ const searchBox = MCO.initSearchBox({
 function selectStation(stationId) {
   // Whichever control the visitor came from becomes the sheet's opener, so
   // closing it returns them there. On a phone the field closes with the nav
-  // drawer here, so a bar button that stays on screen takes focus back: the
-  // search button in the one-row bar, the menu button in the rail.
-  const opener = navRail.isDrawerMode() ? btnSearchToggle
-               : navRail.isRail() ? btnMenu : searchInput;
+  // drawer here, so the bar's search button, which stays on screen in the
+  // one-row bar and (kit 1.0.0) in the rail, takes focus back.
+  const opener = (navRail.isDrawerMode() || navRail.isRail()) ? btnSearchToggle : searchInput;
   navRail.close({ restoreFocus: false });
   flyToStation(stationId, opener);
 }
@@ -807,16 +813,15 @@ function noticeUnplacedStation(id) {
 }
 
 // ── Station sheet + lightbox ──────────────────────────────────────────────────
-// Station detail is the kit's sheet at every width (MCO.initSheet; HOUSE-
-// STYLE §3, 0.21.0): end-docked above compact, a bottom sheet with peek and
-// full detents on compact. It moves focus to its title on open and back to
+// Station detail is the kit's panel at every width (MCO.initSheet; HOUSE-
+// STYLE §3): end-docked above compact; on compact (kit 1.0.0) one state,
+// full height under the bar. It moves focus to its title on open and back to
 // the opener on close (#main for a deep link). Tapping a photo opens the
 // lightbox dialog to enlarge it.
 const sheet = MCO.initSheet({
   sheet: sheetEl,
-  peekHeight: 'auto',   // the head, the stamp row and the first photo ([data-peek])
-  // The full detent on compact is modal; the lightbox the sheet opens must
-  // stay usable on top of it.
+  // On compact the panel is modal; the lightbox it opens must stay usable on
+  // top of it. (The kit takes the bar and the control bar out of this set.)
   inertRoots: () => MCO.overlay.siblingsOf(sheetEl, [lightbox]),
   fallbackFocus: mainEl,
   onState: (state) => { if (state === 'closed') onSheetClosed(); },
@@ -881,18 +886,11 @@ function renderGallery(stationId, { writeUrl = true } = {}) {
 
   photoGrid.replaceChildren();
   const validDirs = _schedule.tokens.filter(dir => shotAt(stationId, dir, st));
-  // The first card (or the empty message) is the bottom of the compact
-  // sheet's peek: one row of photos shows before the visitor expands it.
-  const markPeek = () => {
-    const first = photoGrid.firstElementChild;
-    if (first) first.setAttribute('data-peek', '');
-  };
   const showEmpty = () => {
     const msg = document.createElement("p");
     msg.className = "photo-empty";
     msg.textContent = "No photos available for this station at the selected time.";
     photoGrid.append(msg);
-    markPeek();
   };
   if (validDirs.length === 0) showEmpty();
   validDirs.forEach(dir => {
@@ -916,7 +914,6 @@ function renderGallery(stationId, { writeUrl = true } = {}) {
     img.addEventListener("error", () => {
       card.remove();
       if (!photoGrid.querySelector(".photo-card")) showEmpty();
-      else markPeek();
     });
     btn.addEventListener("click", () => openLightbox(stationId, dir, btn));
     btn.append(img);
@@ -926,7 +923,6 @@ function renderGallery(stationId, { writeUrl = true } = {}) {
     card.append(btn, label);
     photoGrid.append(card);
   });
-  markPeek();
 
   _selectedStation = stationId;
   if (writeUrl) updateUrl();
@@ -946,7 +942,7 @@ function openStation(stationId, opener, { push = true } = {}) {
   _galleryStale = false;
   const n = renderGallery(stationId, { writeUrl: false });
   updateUrl(push && !wasOpen ? { push: true, state: { mcoDetail: stationId } } : {});
-  sheet.open('peek', { opener: opener || document.activeElement });
+  sheet.open({ opener: opener || document.activeElement });
   MCO.announce(n
     ? `Photos for ${f.name} opened, ${n} photos.`
     : `Photos for ${f.name} opened, no photos for this date.`);
@@ -958,9 +954,9 @@ function stepGalleryStation(delta) {
   const n = renderGallery(r.id);
   MCO.announce(`Photos for ${_featureByStation.get(r.id).name}, ${n} photos.${stepNote(r)}`);
 }
-// One close path for ×, Esc and a drag below peek alike (the kit calls
-// onState('closed')). The map deliberately never moves for a station step,
-// not even on close — the visitor is browsing photos, not the map.
+// One close path for × and Esc alike (the kit calls onState('closed')).
+// The map deliberately never moves for a station step, not even on close —
+// the visitor is browsing photos, not the map.
 // If this sheet pushed its entry, step Back over it, so the sheet's own close
 // and the browser's Back land on the same entry and the history never holds
 // two "closed" entries in a row; Forward reopens it either way. When Back
@@ -990,7 +986,7 @@ MCO.onUrlState((params) => {
     };
     if (want.date !== cur.date || want.time !== cur.time || want.view !== cur.view) {
       controls.set(want, { silent: true });
-      updateRail();
+      updateControlBar();
       refreshMapImages();
     }
   }
@@ -1059,9 +1055,11 @@ document.getElementById("lightbox-next").addEventListener("click", () => stepLig
 
 // ←/→ step stations in the sheet or the lightbox. The listeners sit on the
 // two surfaces themselves (siblings, not nested) so only the one holding
-// focus reacts; the sheet's grip keeps ↑/↓ for its detents. Arrow
-// keys aren't printable characters, so this is outside the ?kbd=off opt-out
-// (WCAG 2.1.4 covers letters, punctuation, numbers and symbols).
+// focus reacts. Their preventDefault() makes the kit's ← / → day stepping
+// (initPhotoControls arrowKeys, kit 1.0.0) stand down, so inside the panel
+// the arrows step stations, not days. Arrow keys aren't printable
+// characters, so this is outside the ?kbd=off opt-out (WCAG 2.1.4 covers
+// letters, punctuation, numbers and symbols).
 function arrowStepper(step) {
   return (e) => {
     if (e.altKey || e.ctrlKey || e.metaKey) return;
@@ -1148,12 +1146,13 @@ async function copyShareLink() {
 }
 document.getElementById("btn-share").addEventListener("click", copyShareLink);
 
-// ── Phone bar: one-row bar + rail, and the nav drawer (kit 0.21.0) ─────────────
-// data-rail="compact": on a portrait phone the bar is one row (badge · day
-// stepper · direction cycle · search · ☰) and the full control set opens as
-// a right drawer;
-// on short landscape (MCO.viewport.RAIL_MQ) the same children are the left
-// rail, with the drawer beside it. MCO.initNavRail owns both: aria-expanded
+// ── Phone bar: one-row bar + rail, and the nav drawer ────────────────────────
+// data-rail="compact": on a portrait phone the bar is one row (badge ·
+// search · ☰) and the full control set opens as a right drawer; on short
+// landscape (MCO.viewport.RAIL_MQ) the bar is the rail at the right edge
+// (kit 1.0.0), with the drawer beside it. The time controls are the kit's
+// bottom control bar (#controlbar), at the foot of the rail in landscape.
+// MCO.initNavRail owns both: aria-expanded
 // on the buttons, focus on the drawer itself on open (kit 0.21.2: not the
 // search field, which raised the phone keyboard over the drawer),
 // the page and the rest of the bar inert under the scrim, Esc / the scrim /
@@ -1172,25 +1171,20 @@ const navRail = MCO.initNavRail({
 for (const id of ['btn-export', 'btn-info']) {
   document.getElementById(id).addEventListener('click', () => navRail.close({ restoreFocus: false }));
 }
-// The bar's height as --chrome-h, which the kit's phone bottom sheet keeps
-// clear of (its full-detent max-height). The end-docked sheet measures the
-// bar itself since kit 0.21.1. The rail zeroes it at short landscape.
-MCO.metrics.observe('--chrome-h', document.getElementById('navbar'));
-
-// Date/time/direction at a glance between the bar's day steppers, since the
-// drawer is usually closed.
+// Date/time/direction at a glance in the control bar, between its day
+// steppers, since the drawer is usually closed.
 // A function declaration with its own lookups: buildDirectionControls and
 // updateUrl may call it before this part of the script has run.
-function updateRail() {
+function updateControlBar() {
   const railReadout = document.getElementById('rail-readout');
   const btnRailDir  = document.getElementById('btn-rail-dir');
   const st = sel();
   if (!st || !st.time) return;
   const d = new Date(`${st.date}T12:00:00Z`);
   const md = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-  // Real separators, so the text reads "Nov 12, 2026, 12:00 PM" stacked or
-  // not: the commas show, and the spaces between the spans collapse when
-  // they stack but keep the words apart otherwise and for a screen reader.
+  // Real separators, so the text reads "Nov 12, 2026, 12:00 PM" whether the
+  // spans sit on one line (the bottom bar) or stack (the rail's foot): the
+  // commas show, and the spaces keep the words apart and read right.
   const parts = [`${md},`, `${d.getUTCFullYear()},`, P.slotLabel(st.time)].map(t => {
     const span = document.createElement('span'); span.textContent = t; return span;
   });
@@ -1273,7 +1267,7 @@ function updateUrl({ push = false, state } = {}) {
   if (push) MCO.pushUrlState(params, { state });
   else MCO.replaceUrlState(params);
   updateSocialMeta();
-  updateRail();
+  updateControlBar();
 }
 
 // ── Export (PNG with MCO branding) ────────────────────────────────────────────
