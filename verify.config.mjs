@@ -116,7 +116,8 @@ export default {
       const { page, close } = await open('?station=aceabsar', { ready: () => true, viewport: vp });
       const ok = await page.waitForFunction(sheetOpen, null, { timeout: 20000 }).then(() => true).catch(() => false);
       const r = await sheetState(page);
-      check(`[${vp.name}] ?station=aceabsar opens the sheet (${vp.touch ? 'peek' : 'end-docked'})`, ok && r.station === 'aceabsar' && r.state === (vp.touch ? 'peek' : 'full'), JSON.stringify(r));
+      // Kit 1.0.0: one state at every width ('full'; no peek on compact).
+      check(`[${vp.name}] ?station=aceabsar opens the panel (state full)`, ok && r.station === 'aceabsar' && r.state === 'full', JSON.stringify(r));
       await close();
     }
     // A ?station= with no camera is announced (a notice over the map), not
@@ -155,33 +156,51 @@ export default {
       check('[390] Esc closes the drawer, focus back on ☰', !e.open && e.focus === 'btn-menu', JSON.stringify(e));
       await close();
     }
-    // The direction cycle is a hot control in the phone bar in BOTH
-    // orientations (Kyle, 2026-11-12): visible and hittable in the portrait
-    // row (320 and 390), in the landscape rail (750×340), and in the bar
-    // folded above 640px (768); absent from the desktop bar (1440), which
-    // keeps the select. The portrait row stays one row ≤ 64px with no
-    // horizontal overflow (scrollWidth checked against the viewport width,
-    // not innerWidth, which a mobile layout viewport stretches to fit), ☰
-    // within 16px of the right edge on a phone. Four taps visit N/E/S/W and return,
-    // with the drawer's select, the URL and the label following.
+    // The time controls (kit 1.0.0 .mco-controlbar): the day stepper, its
+    // date/time readout and the direction cycle. Docked at the bottom of a
+    // portrait phone (320, 390) and of the bar folded above 640px (768), at
+    // the foot of the right-edge rail in short landscape (750×340), absent
+    // on the desktop bar (1440), which keeps the date input and the
+    // Direction select (Kyle, 2026-11-12). Every button shown and hittable,
+    // ≥ 44px on touch; the readout reads "Mon D, YYYY, H:MM AM" whole. The
+    // top bar stays one row ≤ 64px with no horizontal overflow (scrollWidth
+    // against the viewport width, not innerWidth, which a mobile layout
+    // viewport stretches to fit), ☰ within 16px of the right edge. Four taps
+    // of the cycle visit N/E/S/W and return, with the drawer's select, the
+    // URL and the label following.
     for (const vp of [{ name: '320', width: 320, height: 568, touch: true }, { name: '390', width: 390, height: 844, touch: true },
       { name: '750x340', width: 750, height: 340, touch: true }, { name: '768', width: 768, height: 1024, touch: true },
       { name: '1440', width: 1440, height: 900 }]) {
-      const { page, close } = await open('', { ready: mosaicReady, viewport: vp });
+      const { page, close } = await open('?date=2026-11-12&time=12', { ready: mosaicReady, viewport: vp });
       const g = await page.evaluate((w) => {
-        const b = document.getElementById('btn-rail-dir'), r = b.getBoundingClientRect();
+        const hit = (el) => { if (!el || !el.getClientRects().length) return null; const r = el.getBoundingClientRect();
+          const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+          return { ok: !!top && (top === el || el.contains(top)), w: Math.round(r.width), h: Math.round(r.height), x: Math.round(r.x), y: Math.round(r.y), b: Math.round(r.bottom), r: Math.round(r.right) }; };
+        const cb = document.getElementById('controlbar');
         const nav = document.getElementById('navbar').getBoundingClientRect(), menu = document.getElementById('btn-menu').getBoundingClientRect();
-        const shown = !!b.offsetParent && r.width > 0;
-        return { shown, hit: shown && document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === b,
-          w: Math.round(r.width), h: Math.round(r.height), navH: Math.round(nav.height), sw: document.documentElement.scrollWidth, vw: w,
-          menuGap: Math.round(w - menu.right), label: b.textContent, sel: document.getElementById('dir-select').value };
+        const ro = document.getElementById('rail-readout');
+        return { bar: hit(cb), prev: hit(document.getElementById('btn-rail-prev')), next: hit(document.getElementById('btn-rail-next')),
+          dir: hit(document.getElementById('btn-rail-dir')), readout: ro.getClientRects().length ? ro.innerText.replace(/\s*\n\s*/g, ' ') : null,
+          readoutOverflow: ro.scrollWidth > ro.clientWidth + 1,
+          // Kit 1.0.0 .is-tight: a rail too short for the readout keeps it for
+          // screen readers only (visually hidden); each part stays one line.
+          tight: cb.classList.contains('is-tight'),
+          partsWhole: [...ro.querySelectorAll(':scope > span')].every((sp) => sp.getClientRects().length === 1),
+          navH: Math.round(nav.height), sw: document.documentElement.scrollWidth, vw: w, vh: innerHeight,
+          tabbar: getComputedStyle(document.documentElement).getPropertyValue('--tabbar-h').trim(),
+          menuGap: Math.round(w - menu.right), label: document.getElementById('btn-rail-dir').textContent, sel: document.getElementById('dir-select').value };
       }, vp.width);
-      if (vp.name === '1440') { check('[1440] no direction cycle in the desktop bar (the select stays)', !g.shown, JSON.stringify(g)); await close(); continue; }
-      check(`[${vp.name}] direction cycle shown, hittable, ≥ 40px`, g.shown && g.hit && g.w >= 40 && g.h >= 40, JSON.stringify(g));
-      // ☰ at the right edge at phone widths and in the bar folded at 768
-      // (kit 0.21.2, K6: the 0.21.1 folded bar left it mid-row there).
-      if (vp.name === '320' || vp.name === '390' || vp.name === '768') check(`[${vp.name}] the bar is one row ≤ 64px, no overflow, ☰ ≤ 16px from the edge`, g.navH <= 64 && g.sw === g.vw && g.menuGap >= 0 && g.menuGap <= 16, JSON.stringify(g));
-      if (vp.name === '768') check('[768] the folded bar is one row ≤ 64px, no overflow', g.navH <= 64 && g.sw === g.vw, JSON.stringify(g));
+      if (vp.name === '1440') { check('[1440] no control bar on the desktop bar (the date input and Direction select stay)', !g.bar && !g.dir, JSON.stringify(g)); await close(); continue; }
+      const btnsOk = [g.prev, g.next, g.dir].every((b) => b && b.ok && b.w >= 44 && b.h >= 44);
+      check(`[${vp.name}] control bar: ‹ › and direction shown, hittable, ≥ 44px`, btnsOk, JSON.stringify(g));
+      check(`[${vp.name}] readout reads "Nov 12, 2026, 12:00 PM", ${g.tight ? 'kept for screen readers in a tight rail' : 'not clipped, no part broken'}`,
+        g.readout === 'Nov 12, 2026, 12:00 PM' && g.partsWhole && (g.tight || !g.readoutOverflow), JSON.stringify({ readout: g.readout, overflow: g.readoutOverflow, tight: g.tight, partsWhole: g.partsWhole }));
+      if (vp.name === '750x340') {
+        check('[750x340] control bar at the foot of the right rail', g.bar && g.bar.r === g.vw && g.bar.b === g.vh && g.bar.w <= 64 && g.tabbar === '0px', JSON.stringify(g.bar));
+      } else {
+        check(`[${vp.name}] control bar docked at the bottom, --tabbar-h = its height`, g.bar && g.bar.b === g.vh && g.bar.x === 0 && g.tabbar === g.bar.h + 'px', JSON.stringify({ bar: g.bar, tabbar: g.tabbar }));
+        check(`[${vp.name}] the top bar is one row ≤ 64px, no overflow, ☰ ≤ 16px from the edge`, g.navH <= 64 && g.sw === g.vw && g.menuGap >= 0 && g.menuGap <= 16, JSON.stringify(g));
+      }
       if (vp.name === '320' || vp.name === '750x340') {
         const seen = [];
         for (let i = 0; i < 4; i++) {
@@ -193,6 +212,137 @@ export default {
           && new Set(seen.map((s) => s.sel)).size === 4 && seen[3].sel === g.sel;
         check(`[${vp.name}] four taps cycle the directions and return, select + URL in sync`, ok, JSON.stringify(seen.map((s) => s.label + s.sel + s.url)));
       }
+      await close();
+    }
+    // Kit 1.0.0, the right-edge rail (844×390 and 750×340, touch): the bar
+    // is a column at the right edge, ☰ then search then the control bar;
+    // every rail button ≥ 44px and hittable; ☰ opens the drawer beside it
+    // (its right edge on the rail's left), focus on the drawer.
+    for (const vp of [{ name: '844x390', width: 844, height: 390, touch: true }, { name: '750x340', width: 750, height: 340, touch: true }]) {
+      const { page, close } = await open('', { ready: mosaicReady, viewport: vp });
+      const r = await page.evaluate(() => {
+        const nav = document.getElementById('navbar').getBoundingClientRect();
+        const ids = ['btn-menu', 'btn-search-toggle', 'btn-rail-prev', 'btn-rail-next', 'btn-rail-dir'];
+        const b = ids.map((id) => { const el = document.getElementById(id), q = el.getBoundingClientRect();
+          const top = document.elementFromPoint(q.x + q.width / 2, q.y + q.height / 2);
+          return { id, y: Math.round(q.y), w: Math.round(q.width), h: Math.round(q.height), hit: !!top && (top === el || el.contains(top)) }; });
+        return { navX: Math.round(nav.x), navR: Math.round(nav.right), navW: Math.round(nav.width), vw: innerWidth, b };
+      });
+      const order = r.b.every((x, i) => i === 0 || x.y > r.b[i - 1].y);
+      check(`[${vp.name}] rail at the right edge, ☰ · search · ‹ · › · direction top to bottom, each ≥ 44px and hittable`,
+        r.navR === r.vw && r.navW <= 64 && order && r.b.every((x) => x.hit && x.w >= 44 && x.h >= 44), JSON.stringify(r));
+      await page.click('#btn-menu'); await page.waitForTimeout(500);
+      const d = await page.evaluate(() => { const dr = document.getElementById('nav-drawer'), q = dr.getBoundingClientRect(), nav = document.getElementById('navbar').getBoundingClientRect();
+        return { open: dr.classList.contains('is-open'), right: Math.round(q.right), navX: Math.round(nav.x), focus: document.activeElement && document.activeElement.id }; });
+      check(`[${vp.name}] ☰ opens the drawer beside the rail, focus on the drawer`, d.open && Math.abs(d.right - d.navX) <= 1 && d.focus === 'nav-drawer', JSON.stringify(d));
+      await close();
+    }
+    // Kit 1.0.0, the station panel: on a phone (390×844, 320×568, 750×340)
+    // one state, the viewport less the bar(s): under the top bar and above
+    // the control bar in portrait, left of the rail in landscape. The bar
+    // and the control bar stay live (not inert), the rest is inert; the ×
+    // is 44px, hittable, top right, and closes it. At 768 and 1440 it is
+    // side-docked at the end edge with the map live. The panel header (title
+    // + ×, no grip) is the same at every width.
+    const headers = {};
+    for (const vp of [{ name: '390', width: 390, height: 844, touch: true }, { name: '320', width: 320, height: 568, touch: true },
+      { name: '750x340', width: 750, height: 340, touch: true }, { name: '768', width: 768, height: 1024, touch: true },
+      { name: '1440', width: 1440, height: 900 }]) {
+      const { page, close } = await open('?station=aceabsar', { ready: () => true, viewport: vp });
+      const ok = await page.waitForFunction(sheetOpen, null, { timeout: 30000 }).then(() => true).catch(() => false);
+      await page.waitForTimeout(800);
+      const r = await page.evaluate(() => {
+        const R = (el) => { const q = el.getBoundingClientRect(); return { x: Math.round(q.x), y: Math.round(q.y), r: Math.round(q.right), b: Math.round(q.bottom), w: Math.round(q.width), h: Math.round(q.height) }; };
+        const s = document.getElementById('station-sheet'), nav = document.getElementById('navbar'), cb = document.getElementById('controlbar');
+        const x = s.querySelector('[data-close-sheet]'), xr = x.getBoundingClientRect();
+        const top = document.elementFromPoint(xr.x + xr.width / 2, xr.y + xr.height / 2);
+        const rail = document.documentElement.classList.contains('is-rail');
+        return { sheet: R(s), nav: R(nav), cb: cb.getClientRects().length ? R(cb) : null, vw: innerWidth, vh: innerHeight, rail,
+          navInert: !!nav.closest('[inert]'), cbInert: !!cb.closest('[inert]'), mainInert: !!document.getElementById('main').closest('[inert]'),
+          close: { ...R(x), hit: !!top && (top === x || x.contains(top)) },
+          head: [...s.querySelector('.mco-sheet-head').children].filter((c) => c.getClientRects().length).map((c) => c.tagName + (c.matches('[data-close-sheet]') ? '[close]' : '') + (c.matches('.mco-sheet-grip') ? '[grip]' : '')).join(' ') };
+      });
+      headers[vp.name] = r.head;
+      const phone = vp.width <= 640 || vp.height <= 560;
+      const closeOk = r.close.hit && r.close.w >= 44 && r.close.h >= 44 && r.close.r >= r.sheet.r - 24 && r.close.y <= r.sheet.y + 24;
+      if (phone) {
+        const wantTop = r.rail ? 0 : r.nav.b, wantBottom = r.rail ? r.vh : (r.cb ? r.cb.y : r.vh), wantRight = r.rail ? r.nav.x : r.vw;
+        check(`[${vp.name}] panel = the viewport less the bar(s), bar and control bar live, the rest inert`,
+          ok && Math.abs(r.sheet.y - wantTop) <= 1 && Math.abs(r.sheet.b - wantBottom) <= 1 && r.sheet.x === 0 && Math.abs(r.sheet.r - wantRight) <= 1
+          && !r.navInert && !r.cbInert && r.mainInert, JSON.stringify(r));
+      } else {
+        check(`[${vp.name}] panel side-docked at the end edge under the bar, map live`,
+          ok && r.sheet.r === r.vw && r.sheet.x > 0 && Math.abs(r.sheet.y - r.nav.b) <= 1 && !r.mainInert, JSON.stringify(r));
+      }
+      check(`[${vp.name}] panel × is 44px, top right, hittable`, closeOk, JSON.stringify(r.close));
+      await page.click('#station-sheet [data-close-sheet]'); await page.waitForTimeout(600);
+      const after = await page.evaluate(() => ({ open: !document.getElementById('station-sheet').hidden && document.getElementById('station-sheet').dataset.state !== 'closed', station: new URLSearchParams(location.search).get('station') }));
+      check(`[${vp.name}] × closes the panel`, !after.open && !after.station, JSON.stringify(after));
+      await close();
+    }
+    check('panel header identical at 1440, 768 and 390 (title + ×, no grip)', headers['1440'] === headers['768'] && headers['768'] === headers['390'] && headers['390'] === 'H2 BUTTON[close]', JSON.stringify(headers));
+    // Kit 1.0.0, ← / → step the day (initPhotoControls arrowKeys): from the
+    // page and from a map a pointer focused; not from a field, not inside
+    // the open station panel (its ← / → step stations and win), not with
+    // ?kbd=off. At 1440 (the bar's stepper) and 390 (the control bar's).
+    const dateNow = (page) => page.evaluate(() => document.getElementById('date-input').value);
+    for (const vp of [{ name: '1440', width: 1440, height: 900 }, { name: '390', width: 390, height: 844, touch: true }]) {
+      const { page, close } = await open('?date=2026-11-10&time=12', { ready: mosaicReady, viewport: vp });
+      const keys = await page.evaluate(() => ['btn-date-prev', 'btn-date-next', 'btn-rail-prev', 'btn-rail-next'].map((id) => document.getElementById(id).getAttribute('aria-keyshortcuts')).join(','));
+      check(`[${vp.name}] day steppers carry aria-keyshortcuts`, keys === 'ArrowLeft,ArrowRight,ArrowLeft,ArrowRight', keys);
+      await page.evaluate(() => document.activeElement && document.activeElement.blur());
+      await page.keyboard.press('ArrowLeft'); await page.waitForTimeout(400);
+      const d1 = await dateNow(page);
+      await page.keyboard.press('ArrowRight'); await page.waitForTimeout(400);
+      const d2 = await dateNow(page);
+      check(`[${vp.name}] ← / → step the day from the page`, d1 === '2026-11-09' && d2 === '2026-11-10', `${d1} ${d2}`);
+      // A map a pointer focused: ← steps the day (not a pan).
+      const box = await page.locator('#map canvas').boundingBox();
+      await page.mouse.click(box.x + box.width * 0.15, box.y + box.height * 0.9); await page.waitForTimeout(400);
+      await page.keyboard.press('ArrowLeft'); await page.waitForTimeout(400);
+      const d3 = await dateNow(page);
+      check(`[${vp.name}] after a click on the map, ← steps the day`, d3 === '2026-11-09', d3);
+      await page.keyboard.press('ArrowRight'); await page.waitForTimeout(300);
+      if (vp.name === '1440') {
+        await page.focus('#date-input'); await page.keyboard.press('ArrowLeft'); await page.waitForTimeout(400);
+        const sel = await page.evaluate(() => ({ v: document.getElementById('date-input').value, url: new URLSearchParams(location.search).get('date') }));
+        check('[1440] ← in the date field stays the field\'s (no day step)', sel.url === '2026-11-10', JSON.stringify(sel));
+      }
+      await close();
+    }
+    {
+      // Inside the open panel ← / → step stations and the day stays put.
+      const { page, close } = await open('?date=2026-11-10&time=12&station=acebozem&lng=-110&lat=46&zoom=6', { ready: () => { const s = document.getElementById('station-sheet'); return !!s && !s.hidden && s.dataset.state !== 'closed' && document.querySelectorAll('#photo-grid .photo-btn').length > 0; } });
+      await page.focus('#btn-station-next'); await page.keyboard.press('ArrowRight'); await page.waitForTimeout(500);
+      const r = await page.evaluate(() => ({ date: document.getElementById('date-input').value, station: new URLSearchParams(location.search).get('station') }));
+      check('[1440] in the open panel → steps the station, not the day', r.date === '2026-11-10' && r.station && r.station !== 'acebozem', JSON.stringify(r));
+      await close();
+    }
+    {
+      const { page, close } = await open('?kbd=off&date=2026-11-10&time=12', { ready: mosaicReady });
+      await page.evaluate(() => document.activeElement && document.activeElement.blur());
+      await page.keyboard.press('ArrowLeft'); await page.waitForTimeout(400);
+      const r = await page.evaluate(() => ({ date: document.getElementById('date-input').value, keys: document.getElementById('btn-date-prev').getAttribute('aria-keyshortcuts') }));
+      check('[1440] ?kbd=off: ← leaves the day alone, no aria-keyshortcuts', r.date === '2026-11-10' && r.keys === null, JSON.stringify(r));
+      await close();
+    }
+    // Kit 1.0.0, the control bar under a (simulated) keyboard at 390: hidden
+    // and --tabbar-h 0 while visualViewport is 300px shorter.
+    {
+      const { page, close } = await open('', { ready: mosaicReady, viewport: { name: '390', width: 390, height: 844, touch: true } });
+      const k = await page.evaluate(() => new Promise((res) => {
+        const vv = window.visualViewport; if (!vv) { res(null); return; }
+        const h = document.documentElement.clientHeight - 300;
+        Object.defineProperty(vv, 'height', { configurable: true, get: () => h });
+        vv.dispatchEvent(new Event('resize'));
+        setTimeout(() => {
+          const cb = document.getElementById('controlbar');
+          res({ kb: document.documentElement.classList.contains('kb-open'), shown: cb.getClientRects().length > 0,
+            tabbar: getComputedStyle(document.documentElement).getPropertyValue('--tabbar-h').trim() });
+          delete vv.height; vv.dispatchEvent(new Event('resize'));
+        }, 300);
+      }));
+      check('[390] the control bar hides under a keyboard (--tabbar-h 0)', !!k && k.kb && !k.shown && k.tabbar === '0px', JSON.stringify(k));
       await close();
     }
     {

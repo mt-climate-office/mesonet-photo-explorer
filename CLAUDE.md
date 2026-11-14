@@ -6,7 +6,7 @@ The Montana Mesonet Photo Explorer: a static MapLibre single-page app in `docs/`
 ## House style
 
 This app consumes mco-web-style (pinned + SRI in `docs/index.html`; currently
-**v0.21.2**, with MapLibre GL **6.11.2** — check the tag in that file rather than trusting this line). Design tokens, a11y mandates, and interaction conventions: see
+**v1.0.0**, with MapLibre GL **6.11.2** — check the tag in that file rather than trusting this line). Design tokens, a11y mandates, and interaction conventions: see
 HOUSE-STYLE.md in https://github.com/mt-climate-office/mco-web-style — tokens
 only (no raw hexes), `--accent` is fill-only, `aria-pressed` drives toggle
 styling, canvas data needs a live region + sr-only table twin. To change shared
@@ -25,8 +25,9 @@ table twin (`MCO.srTable`), and the basemap failure fallback
 kit's too (`MCO.photos`, `photos/mco-photos.js`): the camera schedule, the
 slot and direction rules, frame URLs, and the date / time / direction controls
 (`MCO.photos.initPhotoControls`). Since kit 0.21.0 (family conformance) so are:
-the station detail surface (`MCO.initSheet`: end-docked above compact, a
-bottom sheet on compact; a photo opens the lightbox to enlarge it), the
+the station detail surface (`MCO.initSheet`: end-docked above compact; since
+1.0.0 one state on compact, full height under the bar with the bar live, a
+44px × as its only touch close; a photo opens the lightbox to enlarge it), the
 `?station=` deep-link flight (`MCO.map.flyToAndOpen`), the first-visit intro
 (`MCO.initInfoModal`'s `intro`, key `mco-photos-seen-intro`), and the one-row
 phone bar (`data-rail="compact"`). The social card image stays the
@@ -35,26 +36,34 @@ bot-regenerated `docs/preview.png`, not the kit's og-card.
 Marked kit-overrides in this app:
 - **No hillshade** — the photo mosaic is the figure; relief under opaque photo
   rasters would only show in the untiled west while competing with the imagery.
-- **Map controls beside the end-docked sheet**: the zoom group and attribution
-  move left of the open sheet above compact (the kit's autolift covers only
-  the compact bottom sheet).
+- **Map controls beside the end-docked sheet**: the attribution moves left of
+  the open sheet above compact. The zoom group is top-left (kit 1.0.0
+  default, Kyle 2026-11-13), clear of the end-docked sheet.
 - `.control-label` keeps a base size and muted color (sentence case; the
   uppercase treatment was dropped in the 0.21.0 conformance pass).
 - Between 641 and 1060px the bar may wrap to a second row (the kit tightens
   chrome there and the direction group is a `<select>`); the old `order` /
   `flex-basis` swap that lifted `.nav-meta` beside the brand is gone.
 
-**Phone bar** (kit 0.21.0, `.mco-navbar[data-rail="compact"]` +
-`MCO.initNavRail`): one row on a portrait phone, badge · the hot controls
-(the day stepper, prev · date/time readout · next, and the direction cycle
-`#btn-rail-dir`) · search · ☰ at the right edge, with everything else in a
-right drawer; on a landscape phone the same `.mco-rail` children are the 56px
-left rail. The direction cycle is a hot control in both orientations (Kyle,
-2026-11-12); the desktop bar keeps the select. Below 360px the row fits only
-at a 4px gap (`index.html`, kit-override). The app keeps only its rail content and how its
-control groups stack in the drawer, plus the hand-offs: `/` opens the drawer
-on the search field, a search result closes it without restoring focus,
-Export / info close it first. This app prototyped the rail (mco-web-style #38).
+**Phone bar** (`.mco-navbar[data-rail="compact"]` + `MCO.initNavRail`; kit
+1.0.0 layout): on a portrait phone the top bar is one row, badge · search ·
+☰ at the right edge, with everything else in a right drawer; on a landscape
+phone the bar is the 56px rail at the RIGHT edge (badge, ☰, search), the
+drawer opening beside it. **Time controls** are the kit's bottom control
+bar (`.mco-controlbar#controlbar`, core wires it): the day stepper
+(`#btn-rail-prev` / `#btn-rail-next`), the date/time readout `#rail-readout`
+and the direction cycle `#btn-rail-dir`, docked at the bottom wherever the
+bar is folded (portrait phones, and the bar folded above 640px) and at the
+foot of the rail in short landscape. The desktop bar keeps the date input,
+Time menu and Direction select (Kyle, 2026-11-12: the cycle is the phone
+control, the select the desktop one). ← / → step the day from anywhere
+(`initPhotoControls({arrowKeys: true})`, `?kbd=off` turns it off); inside the
+open station panel and the lightbox the app's own ← / → step stations and
+win (`preventDefault`). The app keeps only its drawer content (how its
+control groups stack) and the hand-offs: `/` opens the drawer on the search
+field, a search result closes it without restoring focus, Export / info
+close it first. No floating legend, so no `MCO.initLegendDrawer`. This app
+prototyped the rail (mco-web-style #38).
 
 ## Camera schedule source
 
