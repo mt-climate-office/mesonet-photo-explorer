@@ -23,10 +23,15 @@
 // reads data2.climate.umt.edu. This app keeps the station join, the mosaic,
 // the landing-slot probe, the gallery and the export.
 const P = MCO.photos;
-const STATIONS_META   = "https://mesonet2.climate.umt.edu/api/stations?type=json";
-const STATUS_META     = "https://mesonet2.climate.umt.edu/api/stations/status?type=json";
+// The Mesonet host for the dashboard and the API. At the cutover this becomes
+// 'https://mesonet.climate.umt.edu'. Change it here, and in the CSP and README.
+const MESONET_ORIGIN  = 'https://mesonet2.climate.umt.edu';
+const API_BASE        = `${MESONET_ORIGIN}/api`;          // the unversioned routes this app has always read
+const API_DOCS_URL    = `${MESONET_ORIGIN}/api/v2/docs`;
+const STATIONS_META   = `${API_BASE}/stations?type=json`;
+const STATUS_META     = `${API_BASE}/stations/status?type=json`;
 const GRID_URL        = "grid.geojson";
-const DASH_URL        = (s) => `https://mesonet.climate.umt.edu/dash/${s}`;
+const DASH_URL        = (s) => `${MESONET_ORIGIN}/dash/?s=${encodeURIComponent(s)}`;
 // The export's wordmark comes from the pinned kit tag (HOUSE-STYLE §1 Logo:
 // exports draw from the kit, never climate.umt.edu), loaded with CORS so the
 // canvas stays exportable. KEEP the version in step with the kit tags in
@@ -1091,6 +1096,8 @@ lightbox.addEventListener("touchend", (e) => {
 // ── Info modal ────────────────────────────────────────────────────────────────
 // The Data section's credit line is the kit's one wording (HOUSE-STYLE §1).
 document.getElementById("info-credit").textContent = MCO.credit({ source: 'Montana Mesonet' });
+// The help's API link follows MESONET_ORIGIN (no host written in the HTML).
+document.getElementById("info-api-link").href = API_DOCS_URL;
 // First-visit intro: the kit's (initInfoModal `intro`, 0.21.0). Once per key,
 // written as it opens; never over a deep link (someone following a shared URL
 // came for that view) or a headless export run, and never once focus has

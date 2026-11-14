@@ -38,9 +38,12 @@ Pushing `main` deploys. GitHub Pages publishes `docs/`, and the `mesonet_app` Ca
 
 - Stations: `https://mesonet2.climate.umt.edu/api/stations?type=json`
 - Grid cells: `https://mesonet2.climate.umt.edu/api/stations/status?type=json` (`ace_grid`)
+- Dashboard links: `https://mesonet2.climate.umt.edu/dash/?s=<station>`
 - Camera schedule: `https://data2.climate.umt.edu/mesonet/photos/schedule/schedule.json`, read by the kit's `MCO.photos`
 - Photos: `https://data2.climate.umt.edu/mesonet/photos/webp/{thumb,large}/<station>/…webp`
 - Grid geometry: `docs/grid.geojson`, from `mesonet-photo-explorer.R` and `data/`
+
+Cutover: change `MESONET_ORIGIN` in `docs/app.js` and the CSP `connect-src`.
 
 Photos and the schedule come from the mesonet-cameras repo. This repo owns no AWS resources.
 
