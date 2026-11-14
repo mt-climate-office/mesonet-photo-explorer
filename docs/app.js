@@ -1097,7 +1097,7 @@ lightbox.addEventListener("touchend", (e) => {
 // The Data section's credit line is the kit's one wording (HOUSE-STYLE §1).
 document.getElementById("info-credit").textContent = MCO.credit({ source: 'Montana Mesonet' });
 // The help's API link follows MESONET_ORIGIN (no host written in the HTML).
-document.getElementById("info-api-link").href = API_DOCS_URL;
+Object.assign(document.getElementById("info-api-link"), { href: API_DOCS_URL, target: '_blank', rel: 'noopener' });
 // First-visit intro: the kit's (initInfoModal `intro`, 0.21.0). Once per key,
 // written as it opens; never over a deep link (someone following a shared URL
 // came for that view) or a headless export run, and never once focus has
