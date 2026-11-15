@@ -320,7 +320,7 @@ async function resolveInitialTimestep() {
 }
 
 async function onMapLoad() {
-  await loadData();
+  if (!(await loadData())) { MCO.ready(); return; }
   await resolveInitialTimestep();
   addCustomLayers();
   zoomFloor.refresh();
@@ -363,8 +363,15 @@ async function loadData() {
   } catch (err) {
     console.error(err);
     _schedule = null;
-    MCO.showToast("Failed to load map data. Please refresh.", 6000);
-    return;
+    // A notice, not a toast: the map is empty until the data loads. Retry
+    // re-runs the whole first load.
+    timeInput.options[0].textContent = 'Unavailable';
+    const n = MCO.notice({
+      tone: 'danger', text: 'Map data failed to load.',
+      action: { label: 'Retry', onClick: () => { n.close(); timeInput.options[0].textContent = 'Loading'; onMapLoad(); } },
+      container: document.getElementById('map-container'), place: 'over',
+    });
+    return false;
   }
 
   // Assemble the live station set: active HydroMet stations that have photos,
@@ -398,6 +405,7 @@ async function loadData() {
   _stationNames     = new Map(allStations.map(s => [s.station, s.name || s.station]));
 
   initControls();
+  return true;
 }
 
 // ── Date / time / direction controls (kit: MCO.photos.initPhotoControls) ──────
