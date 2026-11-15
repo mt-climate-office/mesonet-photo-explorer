@@ -1374,18 +1374,18 @@ async function exportPNG() {
     await drawBranding(ctx, W, H);
     ctx.restore();
 
-    canvas.toBlob((blob) => {
-      if (!blob) { MCO.showToast("Export failed."); return; }
-      const url = URL.createObjectURL(blob);
-      const a = Object.assign(document.createElement("a"), {
-        href: url, download: `mesonet-photos-${st.date}-${st.view}.png`,
-      });
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      MCO.showToast("Exported!");
-    }, "image/png");
+    // Awaited, so a failure here is caught below and the map is removed after.
+    const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
+    if (!blob) { MCO.showToast("Export failed."); return; }
+    const url = URL.createObjectURL(blob);
+    const a = Object.assign(document.createElement("a"), {
+      href: url, download: `mesonet-photos-${st.date}-${st.view}.png`,
+    });
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    MCO.showToast("Exported!");
   } catch (err) {
     console.error(err);
     MCO.showToast("Export failed.");
