@@ -139,6 +139,13 @@ export default {
       const { page, close } = await open('', { ready: mosaicReady, viewport: { name: '390', width: 390, height: 844, touch: true } });
       const navH = await page.evaluate(() => Math.round(document.getElementById('navbar').getBoundingClientRect().height));
       check('[390] the phone bar is one row ≤ 64px', navH <= 64, `navH=${navH}`);
+      // Page tools (kit .mco-bar-tools): one group, the bar's last child,
+      // in the order share, export, theme, help; the help button is "Help".
+      const tools = await page.evaluate(() => { const bar = document.getElementById('navbar'), g = bar.querySelector(':scope > .mco-bar-tools');
+        return { last: !!g && g === bar.lastElementChild, ids: [...bar.querySelectorAll('.mco-bar-tools > *, .mco-drawer-tools > *')].map((e) => e.id).join(' '),
+          help: document.getElementById('btn-info').getAttribute('aria-label'), where: bar.getAttribute('data-tools') }; });
+      check('[390] page tools: share, export, theme, help in one group, last in the bar; help is named "Help"',
+        tools.last && tools.ids === 'btn-share btn-export btn-theme btn-info' && tools.help === 'Help' && !!tools.where, JSON.stringify(tools));
       await page.click('#btn-menu'); await page.waitForTimeout(400);
       const d = await page.evaluate(() => ({ open: document.getElementById('nav-drawer').classList.contains('is-open'),
         mainInert: document.getElementById('main').inert, expanded: document.getElementById('btn-menu').getAttribute('aria-expanded'),
