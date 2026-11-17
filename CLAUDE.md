@@ -96,7 +96,8 @@ directions or converts Mountain time itself. What the kit does for it:
   instant picks the window), so history renders what was actually shot.
 - `P.initPhotoControls` owns `#date-input`, `#time-input`, the two stepper pairs
   (navbar and rail) and the direction radio fieldset `#dir-btns` with its
-  `#dir-select` fallback (1400px edge). The Time menu is built per date from the
+  `#dir-select` fallback (1400px edge; 1600px in the staff view, whose nine
+  9:00 AM views do not fit as segments below ~1570px). The Time menu is built per date from the
   schedule (a slot is offered when at least half of the shooting stations shoot it;
   today's slots inside the 30-minute lag are listed but disabled). Directions are
   limited to those some *placed* station shot at the slot (`stations:` option).

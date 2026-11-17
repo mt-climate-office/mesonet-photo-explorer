@@ -472,7 +472,10 @@ function initControls() {
     views: { group: document.getElementById('dir-btns'), select: document.getElementById('dir-select') },
     // The 1400 label edge, not the kit's default 1060: this bar no longer fits
     // its segments below it with the 0.10.0 lockup (index.html, Responsive).
-    mq: '(max-width: 1400px)',
+    // The staff view swaps at 1600: its nine post-cutover views (9:00 AM
+    // slots) need ~1570px as segments, and between 1401 and there the kit's
+    // fold-to-fit put the whole bar in the drawer rather than use the select.
+    mq: internalView ? '(max-width: 1600px)' : '(max-width: 1400px)',
     stations: _activeFeatures.map(f => f.station),
     onRoll: queueRollToast,
     onChange: (st, ch) => {
