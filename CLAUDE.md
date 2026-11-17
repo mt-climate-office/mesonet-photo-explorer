@@ -6,7 +6,7 @@ The Montana Mesonet Photo Explorer: a static MapLibre single-page app in `docs/`
 ## House style
 
 This app consumes mco-web-style (pinned + SRI in `docs/index.html`; currently
-**v1.0.0**, with MapLibre GL **6.11.2** — check the tag in that file rather than trusting this line). Design tokens, a11y mandates, and interaction conventions: see
+**v1.1.0**, with MapLibre GL **6.11.2** — check the tag in that file rather than trusting this line). Design tokens, a11y mandates, and interaction conventions: see
 HOUSE-STYLE.md in https://github.com/mt-climate-office/mco-web-style — tokens
 only (no raw hexes), `--accent` is fill-only, `aria-pressed` drives toggle
 styling, canvas data needs a live region + sr-only table twin. To change shared
@@ -47,9 +47,12 @@ Marked kit-overrides in this app:
 
 **Phone bar** (`.mco-navbar[data-rail="compact"]` + `MCO.initNavRail`; kit
 1.0.0 layout): on a portrait phone the top bar is one row, badge · search ·
-☰ at the right edge, with everything else in a right drawer; on a landscape
-phone the bar is the 56px rail at the RIGHT edge (badge, ☰, search), the
-drawer opening beside it. **Time controls** are the kit's bottom control
+page tools · ☰ at the right edge, with everything else in a right drawer; on
+a landscape phone the bar is the 56px rail at the RIGHT edge (badge, ☰,
+search, help), the drawer opening beside it. **Page tools** (kit 1.1.0,
+`.mco-bar-tools`, the bar's last child): share, export, theme and help. The
+kit keeps them in the bar while they fit and moves all but help to a row at
+the top of the drawer when they do not. **Time controls** are the kit's bottom control
 bar (`.mco-controlbar#controlbar`, core wires it): the day stepper
 (`#btn-rail-prev` / `#btn-rail-next`), the date/time readout `#rail-readout`
 and the direction cycle `#btn-rail-dir`, docked at the bottom wherever the

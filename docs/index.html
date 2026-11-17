@@ -40,11 +40,11 @@
   <!-- Favicons / app icons: hot-linked from the pinned kit tag (kit 0.9.0+,
        decided 2026-10-08) so they version with the kit and can't drift. The
        navbar logo stays vendored (assets/mco-logo.png). -->
-  <link rel="icon" type="image/png" sizes="32x32" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.0.0/assets/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.0.0/assets/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.0.0/assets/apple-touch-icon.png">
-  <link rel="icon" type="image/png" sizes="192x192" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.0.0/assets/icon-192.png">
-  <link rel="icon" type="image/png" sizes="512x512" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.0.0/assets/icon-512.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.1.0/assets/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.1.0/assets/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.1.0/assets/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.1.0/assets/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.1.0/assets/icon-512.png">
 
   <!-- Open Graph / social sharing. Canonical on the production host (the
        Pages origin is only the reverse proxy's upstream). The card image is
@@ -97,8 +97,8 @@
   <!-- House fonts: kit-hosted (mco-web-style 0.7.0+), declared in mco-theme.css.
        Preloaded so the first frame is already in Outfit — no system-font flash.
        Same @version as the theme CSS; crossorigin is required on font preloads. -->
-  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.0.0/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.0.0/fonts/space-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.1.0/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.1.0/fonts/space-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
   <!-- MapLibre GL 6.x (mco-web-style snippets/head.html). ES modules only:
        mco-map.js imports it (MCO.map.loadMapLibre), and this import map carries
        the SRI hashes for the entry and its shared chunk. Keep it ONE LINE, byte
@@ -116,8 +116,8 @@
         crossorigin="anonymous">
   <!-- mco-web-style: tokens (3 themes), a11y utilities, navbar/toast/tooltip/
        modal shells, MapLibre polish. Pinned + SRI per house policy. -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.0.0/theme/mco-theme.css"
-        integrity="sha384-sYr4fDiezV2VCn92FyWqmM9kKbbJPMUCqf7xIkQqLyFlSbMmWCTGdAzNPlm6cJ65"
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.1.0/theme/mco-theme.css"
+        integrity="sha384-WX2ClnLE7X3vkRXzHEfUIeqRxuvM5OcSUVWmdbZQiFdqo+OaAyb2+GZexTcjrYJz"
         crossorigin="anonymous">
 
   <style>
@@ -305,11 +305,8 @@
       #nav-drawer .date-stepper input[type="date"] { flex: 1; min-width: 0; }
       #nav-drawer .time-select { width: 100%; }
       /* kit-override: in the drawer the "/" hint goes (a phone has no
-         keyboard to press it on) and the action buttons sit two by two. */
+         keyboard to press it on). */
       .mco-nav-drawer .search-kbd { display: none; }
-      .mco-nav-drawer .nav-meta {
-        display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;
-      }
     }
     /* The same drawer, folded above 640px (kit 0.21.1 fold-to-fit).
        kit-override: as above, more air between the stacked groups. */
@@ -318,11 +315,8 @@
     /* kit-override: app controls fill the drawer's width, as on a phone. */
     .mco-navbar[data-rail="compact"].is-folded #nav-drawer .date-stepper input[type="date"] { flex: 1; min-width: 0; }
     .mco-navbar[data-rail="compact"].is-folded #nav-drawer .time-select { width: 100%; }
-    /* kit-override: as above, no "/" hint and the action buttons two by two. */
+    /* kit-override: as above, no "/" hint. */
     .mco-navbar[data-rail="compact"].is-folded .mco-nav-drawer .search-kbd { display: none; }
-    .mco-navbar[data-rail="compact"].is-folded .mco-nav-drawer .nav-meta {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;
-    }
     /* The direction cycle (in the control bar, wherever that shows): a mono
        label, as it has always had. The drawer keeps the direction menu and
        the desktop bar the select. */
@@ -353,9 +347,10 @@
 
   <!-- The phone bar (kit .mco-rail; data-rail="compact"). Hidden above
        compact. On a portrait phone the bar is ONE row: badge (left edge) ·
-       search · ☰ (the first child, moved to the right edge by the kit). On a
-       landscape phone it is the 56px rail at the RIGHT edge (kit 1.0.0):
-       badge, ☰, search, then the control bar below at its foot. The time
+       search · the page tools that fit (.mco-bar-tools, below) · ☰ (the
+       first child, moved to the right edge by the kit). On a landscape
+       phone it is the 56px rail at the RIGHT edge (kit 1.0.0): badge, ☰,
+       search, help, then the control bar below at its foot. The time
        controls are not here: they are the .mco-controlbar after the header. -->
   <div class="mco-rail" id="rail">
     <button type="button" class="nav-btn icon-only" id="btn-menu"
@@ -444,15 +439,12 @@
   <div class="nav-meta">
     <!-- A map layer, so a chip (HOUSE-STYLE §5.7): pressed means showing. -->
     <button type="button" class="mco-chip" id="btn-counties" aria-pressed="false">Boundaries</button>
-    <button type="button" class="nav-btn" id="btn-export" aria-label="Export map as PNG">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-        <polyline points="7 10 12 15 17 10"/>
-        <line x1="12" y1="15" x2="12" y2="3"/>
-      </svg>
-      <span class="btn-label">Export</span>
-    </button>
+  </div>
+  </div>
+  <!-- The page's own buttons (kit .mco-bar-tools), last in the bar. The kit
+       keeps them in the bar while they fit and moves all but help to the
+       top of the drawer when they do not. -->
+  <div class="mco-bar-tools" role="group" aria-label="Page tools">
     <button type="button" class="nav-btn" id="btn-share" aria-label="Copy shareable link">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -462,8 +454,17 @@
       </svg>
       <span class="btn-label">Share</span>
     </button>
+    <button type="button" class="nav-btn" id="btn-export" aria-label="Export map as PNG">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      <span class="btn-label">Export</span>
+    </button>
     <!-- aria-label maintained at runtime by MCO.initThemeToggle -->
-    <button type="button" class="nav-btn icon-only" id="btn-theme" title="Switch theme" aria-label="Switch theme">
+    <button type="button" class="nav-btn" id="btn-theme" title="Switch theme" aria-label="Switch theme">
       <svg id="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
@@ -483,9 +484,11 @@
            aria-hidden="true" style="display:none">
         <circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>
       </svg>
+      <span class="btn-label">Theme</span>
     </button>
-    <button type="button" class="nav-btn mco-btn-info" id="btn-info" aria-label="About this explorer">?</button>
-  </div>
+    <button type="button" class="nav-btn mco-btn-info" id="btn-info" aria-label="Help">
+      <span aria-hidden="true">?</span><span class="btn-label">Help</span>
+    </button>
   </div>
 </header>
 
@@ -643,15 +646,15 @@
 
 <!-- mco-web-style (window.MCO / MCO.map). MapLibre has no script tag any
      more: mco-map.js imports it on demand (MCO.map.loadMapLibre). -->
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.0.0/core/mco-core.js"
-        integrity="sha384-D7xlWfDfWcrBYM29SxNSZ9sjoFbu9VmboXzztcMMqsSm10bhGta1w4i7Q/mveU3A"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.1.0/core/mco-core.js"
+        integrity="sha384-Y0+6TDc0xyv3bq3FQBaH3f/wjp9D9Ce76Fe5HuZS35+gGTBm9asV5Ar4CsHm8TyW"
         crossorigin="anonymous"></script>
-<!-- MCO.photos (0.14.0+; fullHistory 0.15.0; pinned 1.0.0): camera schedule, slots, directions, frame URLs and
+<!-- MCO.photos (0.14.0+; fullHistory 0.15.0; pinned 1.1.0): camera schedule, slots, directions, frame URLs and
      the date / time / direction controls. After mco-core.js. -->
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.0.0/photos/mco-photos.js"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.1.0/photos/mco-photos.js"
         integrity="sha384-37IVeEM6TGCn5N4m1wEWJHp/LUzOsamBdkDmzbU+qHENAP1PfLQVMjVIX0SY3X/2"
         crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.0.0/map/mco-map.js"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.1.0/map/mco-map.js"
         integrity="sha384-eWrG2T3udOw4ET+hy7Sq0BR/c4jCKD2+Cy4TEV2m4Dd6BL5VXGZXS2n8B8y+8v4z"
         crossorigin="anonymous"></script>
 <script src="app.js"></script>

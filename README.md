@@ -61,6 +61,6 @@ node tools/verify/keyboard.mjs   --config ../mesonet-photo-explorer/verify.confi
 
 ## Kit
 
-`mco-web-style` 1.0.0, pinned with SRI in `docs/index.html`.
+`mco-web-style` 1.1.0, pinned with SRI in `docs/index.html`.
 
 Design rules: mco-web-style/HOUSE-STYLE.md
