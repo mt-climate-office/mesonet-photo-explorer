@@ -118,6 +118,9 @@ export default {
       const r = await sheetState(page);
       // Kit 1.0.0: one state at every width ('full'; no peek on compact).
       check(`[${vp.name}] ?station=aceabsar opens the panel (state full)`, ok && r.station === 'aceabsar' && r.state === 'full', JSON.stringify(r));
+      // VOICE.md: no arrow in link text; the name still says which station.
+      const dash = await page.evaluate(() => { const a = document.querySelector('#sheet-dash-link a'); return a && { text: a.textContent, name: a.getAttribute('aria-label') }; });
+      check(`[${vp.name}] dashboard link reads "Open dashboard", named for the station`, dash && dash.text === 'Open dashboard' && /^Open dashboard for \S/.test(dash.name), JSON.stringify(dash));
       await close();
     }
     // A ?station= with no camera is announced (a notice over the map), not

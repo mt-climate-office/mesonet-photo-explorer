@@ -894,7 +894,8 @@ function renderGallery(stationId, { writeUrl = true } = {}) {
   dashLink.href = DASH_URL(stationId);
   dashLink.target = "_blank";
   dashLink.rel = "noopener";
-  dashLink.textContent = `Open ${f.name} dashboard →`;
+  dashLink.textContent = 'Open dashboard';
+  dashLink.setAttribute('aria-label', `Open dashboard for ${f.name}`);
   dashWrap.append(dashLink);
 
   photoGrid.replaceChildren();
