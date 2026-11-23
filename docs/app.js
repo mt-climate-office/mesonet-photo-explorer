@@ -417,7 +417,7 @@ async function loadData() {
 // desktop bar's and the control bar's), with ← / → stepping the day from
 // anywhere (arrowKeys, kit 1.0.0; ?kbd=off turns it off). Initial state: ?date / ?time / ?dir (validated) > the latest slot,
 // North. Only directions some placed station shot at the selected slot are
-// offered. A move the visitor did not ask for (a date before photos start, a
+// offered, except in the staff view (allViews, below). A move the visitor did not ask for (a date before photos start, a
 // time that day never offered or not in yet, a direction nobody shot) comes
 // back as a roll, toasted once after stepping settles. It does not write the
 // URL: updateUrl merges controls.params().
@@ -472,11 +472,16 @@ function initControls() {
     views: { group: document.getElementById('dir-btns'), select: document.getElementById('dir-select') },
     // The 1400 label edge, not the kit's default 1060: this bar no longer fits
     // its segments below it with the 0.10.0 lockup (index.html, Responsive).
-    // The staff view swaps at 1600: its nine post-cutover views (9:00 AM
-    // slots) need ~1570px as segments, and between 1401 and there the kit's
-    // fold-to-fit put the whole bar in the drawer rather than use the select.
-    mq: internalView ? '(max-width: 1600px)' : '(max-width: 1400px)',
+    // The staff view swaps at 1700: all eleven of its views are always
+    // offered (allViews), which need 1639px as segments in Chromium (1620 in
+    // WebKit), and below that the kit's fold-to-fit put the whole bar in the
+    // drawer rather than use the select.
+    mq: internalView ? '(max-width: 1700px)' : '(max-width: 1400px)',
     stations: _activeFeatures.map(f => f.station),
+    // Staff: every view at every time (kit 1.3.0). The sky views are shot at
+    // 9:00 only, so picking one at noon moves the time to 9:00; picking a
+    // time that did not shoot it falls back to North (Kyle, 2026-11-23).
+    allViews: internalView,
     onRoll: queueRollToast,
     onChange: (st, ch) => {
       // The 'init' change fires inside initPhotoControls, before `controls`
