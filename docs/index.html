@@ -40,11 +40,11 @@
   <!-- Favicons / app icons: hot-linked from the pinned kit tag (kit 0.9.0+,
        decided 2026-10-08) so they version with the kit and can't drift. The
        navbar logo stays vendored (assets/mco-logo.png). -->
-  <link rel="icon" type="image/png" sizes="32x32" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.2.0/assets/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.2.0/assets/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.2.0/assets/apple-touch-icon.png">
-  <link rel="icon" type="image/png" sizes="192x192" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.2.0/assets/icon-192.png">
-  <link rel="icon" type="image/png" sizes="512x512" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.2.0/assets/icon-512.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.3.0/assets/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.3.0/assets/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.3.0/assets/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.3.0/assets/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.3.0/assets/icon-512.png">
 
   <!-- Open Graph / social sharing. Canonical on the production host (the
        Pages origin is only the reverse proxy's upstream). The card image is
@@ -97,8 +97,8 @@
   <!-- House fonts: kit-hosted (mco-web-style 0.7.0+), declared in mco-theme.css.
        Preloaded so the first frame is already in Outfit — no system-font flash.
        Same @version as the theme CSS; crossorigin is required on font preloads. -->
-  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.2.0/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.2.0/fonts/space-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.3.0/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.3.0/fonts/space-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
   <!-- MapLibre GL 6.x (mco-web-style snippets/head.html). ES modules only:
        mco-map.js imports it (MCO.map.loadMapLibre), and this import map carries
        the SRI hashes for the entry and its shared chunk. Keep it ONE LINE, byte
@@ -116,7 +116,7 @@
         crossorigin="anonymous">
   <!-- mco-web-style: tokens (3 themes), a11y utilities, navbar/toast/tooltip/
        modal shells, MapLibre polish. Pinned + SRI per house policy. -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.2.0/theme/mco-theme.css"
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.3.0/theme/mco-theme.css"
         integrity="sha384-3NnxwFCsQtUxhjn1qkcZ8kWMVfCU1wQvygRG4Z5xev3LZYiO0CIT5DmlOYmrH0mn"
         crossorigin="anonymous">
 
@@ -645,15 +645,15 @@
 
 <!-- mco-web-style (window.MCO / MCO.map). MapLibre has no script tag any
      more: mco-map.js imports it on demand (MCO.map.loadMapLibre). -->
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.2.0/core/mco-core.js"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.3.0/core/mco-core.js"
         integrity="sha384-Lg1ZYKs0QP/c+2yHsq7uESujpfwptLkhliGBSfiL1ujTp546sMarq5wDVwfu6+Fn"
         crossorigin="anonymous"></script>
 <!-- MCO.photos (0.14.0+; fullHistory 0.15.0; pinned 1.1.1): camera schedule, slots, directions, frame URLs and
      the date / time / direction controls. After mco-core.js. -->
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.2.0/photos/mco-photos.js"
-        integrity="sha384-ozh/CC3Rkx2Nr0HhRWGblyI7Qv4lUCRObmP01WH882/F3tDGUVGJngiKlTF6z+xz"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.3.0/photos/mco-photos.js"
+        integrity="sha384-hSCdglCTRDvhI6uURav/0deADiDAl+SPXF7WlYJoApm/QQSm1DB4HI5kQalK1Krn"
         crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.2.0/map/mco-map.js"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.3.0/map/mco-map.js"
         integrity="sha384-e0qIyit6dZojkXI677UlnDsT21wfxDYDRH6tisxwamJWoUkFoM+T6A3YgkEs6KtE"
         crossorigin="anonymous"></script>
 <script src="app.js"></script>
