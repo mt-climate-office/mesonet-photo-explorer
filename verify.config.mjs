@@ -381,7 +381,7 @@ export default {
       check('?internal=1 keeps history and offers staff views', r.date === '2026-09-01' && r.views.some((v) => !['N', 'E', 'S', 'W'].includes(v)), JSON.stringify(r));
       await close();
     }
-    // The social-preview contract (scripts/generate_preview.py): ?export=light&dir=W
+    // The social-preview contract (.github/workflows/pages.yml): ?export=light&dir=W
     // clicks #btn-export after 4 s, which downloads a PNG.
     const { page, close } = await open('?export=light&dir=W', { ready: () => true, settleMs: 0 });
     let ok = false;

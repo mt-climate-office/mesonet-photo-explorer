@@ -1,7 +1,7 @@
 # mesonet-photo-explorer
 
 The Montana Mesonet Photo Explorer: a static MapLibre single-page app in `docs/`
-(GitHub Pages root), plus `scripts/generate_preview.py`.
+(GitHub Pages root).
 
 ## House style
 
@@ -30,8 +30,8 @@ the station detail surface (`MCO.initSheet`: end-docked above compact; since
 44px × as its only touch close; a photo opens the lightbox to enlarge it), the
 `?station=` deep-link flight (`MCO.map.flyToAndOpen`), the first-visit intro
 (`MCO.initInfoModal`'s `intro`, key `mco-photos-seen-intro`), and the one-row
-phone bar (`data-rail="compact"`). The social card image stays the
-bot-regenerated `docs/preview.png`, not the kit's og-card.
+phone bar (`data-rail="compact"`). The social card image is the
+live `docs/assets/og-card.jpg`, not the kit's og-card.
 
 Marked kit-overrides in this app:
 - **No hillshade** — the photo mosaic is the figure; relief under opaque photo
@@ -146,21 +146,21 @@ blank map.
 
 ## Deploying — read before you push
 
-Pushing `main` **is a production deploy, on two URLs**: GitHub Pages publishes
-`/docs` from `main`, and the same page is reverse-proxied at
+Pushing `main` **is a production deploy, on two URLs**: `.github/workflows/pages.yml`
+deploys `docs/` to GitHub Pages, and the same page is reverse-proxied at
 `mesonet.climate.umt.edu/photos/` (mesonet_app Caddyfile).
 
-`.github/workflows/preview.yml` runs once daily and **commits `docs/preview.png`
-back to `main`** — always pull/rebase before pushing, or you race it.
+The same workflow redeploys every 6 hours with a fresh social card
+(`docs/assets/og-card.jpg`, never committed).
 
 This repo owns no AWS resources and no photo processing: the pipeline lives in
 mesonet-cameras, the bucket in mco-aws (`stacks/mco-mesonet-bucket`), the CDN in
 mco-data-cdn.
 
-`scripts/generate_preview.py` drives the live page headlessly via `?export=light&dir=W`
+The card workflow (the kit's og-preview, `mode: download`) drives the live page headlessly via `?export=light&dir=W`
 plus a 4-second delay before clicking `#btn-export`. That timing, the param, and
 the button id are a contract — changing them silently breaks the social preview
-in production. Run it locally against your changes first.
+in production.
 
 ## Verification
 

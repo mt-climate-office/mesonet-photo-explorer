@@ -36,7 +36,7 @@ const DASH_URL        = (s) => `${MESONET_ORIGIN}/dash/?s=${encodeURIComponent(s
 // exports draw from the kit, never climate.umt.edu), loaded with CORS so the
 // canvas stays exportable. KEEP the version in step with the kit tags in
 // index.html. -on-light / -on-dark is picked by the card's own background.
-const KIT_ASSETS      = "https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.3.0/assets/";
+const KIT_ASSETS      = "https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.4.0/assets/";
 const WORDMARK_URL    = (onLight) => `${KIT_ASSETS}mco-wordmark-on-${onLight ? 'light' : 'dark'}.svg`;
 
 // This tool keeps the full public history (website DECISIONS D16, kit 0.15.0
@@ -338,7 +338,7 @@ async function onMapLoad() {
     if (_initStation && _schedule && !_exportParam) noticeUnplacedStation(_initStation);
     updateUrl();
   }
-  // Headless export hook (scripts/generate_preview.py drives ?export=…).
+  // Headless export hook (the social card workflow, pages.yml, drives ?export=…).
   // The 4 s delay is part of that contract — don't shorten it.
   if (_exportParam) setTimeout(() => document.getElementById('btn-export').click(), 4000);
   // First meaningful state: layers added, landing slot settled, URL published
@@ -1240,7 +1240,7 @@ window.addEventListener("keydown", (e) => {
 // MCO.setSocialMeta): the tab stays the short name, matching the Explorer and
 // UMRB Build maps; the card gets the date as its one detail ("October 9, 2026 ·
 // Photos · Montana Mesonet"), with the time and direction in the description.
-// The card image is the bot-regenerated preview.png (preview.yml), not the
+// The card image is the live assets/og-card.jpg (pages.yml), not the
 // kit's og-card. og:url follows the shared state; the canonical link stays the
 // static production one in index.html (no `canonical` passed — kit 0.11.2).
 function updateSocialMeta() {
@@ -1254,7 +1254,7 @@ function updateSocialMeta() {
   MCO.setPageTitle({ short: 'Photos' });
   MCO.setSocialMeta({
     short: 'Photos', detail: dateFmt, description: desc,
-    image: new URL("preview.png", location.href).href, imageWidth: 2800, imageHeight: 1400,
+    image: new URL("assets/og-card.jpg", location.href).href, imageWidth: 2800, imageHeight: 1400,
     imageAlt: 'Map of Montana Mesonet weather stations with station photos',
     url: location.href,
   });

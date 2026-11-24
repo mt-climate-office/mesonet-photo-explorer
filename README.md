@@ -15,9 +15,9 @@ The page reads live data, so no other setup is needed.
 
 ## Deploy
 
-Pushing `main` deploys. GitHub Pages publishes `docs/`, and the `mesonet_app` Caddyfile proxies it at `/photos/`.
-`.github/workflows/preview.yml` commits `docs/preview.png` to `main` daily. Pull before you push.
-`scripts/generate_preview.py` needs `?export=light&dir=W`, the 4 s delay and `#btn-export`. Keep all three.
+Pushing `main` deploys `docs/` through `.github/workflows/pages.yml`, and the `mesonet_app` Caddyfile proxies it at `/photos/`.
+The same workflow refreshes the social card (`docs/assets/og-card.jpg`, the app's own export) every 6 hours.
+It needs `?export=light&dir=W`, the 4 s delay and `#btn-export`. Keep all three.
 
 ## URL parameters
 
